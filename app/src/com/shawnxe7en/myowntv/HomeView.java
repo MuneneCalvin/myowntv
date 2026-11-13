@@ -93,10 +93,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     // padding (the focused icon grows 20% without touching its edge). The icons are 16:9, the shape of the apps' TV
     // banners, so those are never stretched: up to 224 × 126, 178 × 100 with eight apps, 133 × 75 with ten
     // (HomeApps.shelfVisible; past that the shelf scrolls).
-    private static final float SHELF_PAD = 40, TILE_GAP = 48;
-    private static final float TILE_RADIUS = 22;
+    // The dock like Couch TV's: square rounded icons close together in a snug glass pill
+    private static final float SHELF_PAD = 16, TILE_GAP = 20;
+    private static final float TILE_RADIUS = 28;
     // Tile focus (Apple TV style): it grows from the center and its shadow drops (it "rises" toward the viewer).
-    private static final float FOCUS_GROW = 0.2f;
+    private static final float FOCUS_GROW = 0.16f;
     // Corner capsule.
     // Corner capsule: the height and top offset of the tvOS tab bar (68 and 46).
     private static final float CAPSULE_TOP = 46, CAPSULE_H = 68, BUTTON = 56;
@@ -1693,10 +1694,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         int n = Math.min(shelf.size(), shelfVisible);
         float pad = SHELF_PAD * k, gap = TILE_GAP * k;
         float full = (CONTENT_R - MARGIN) * k;
-        // Tiles in the TV banners' own 16:9, so an app's art is never stretched; never taller than L_TILE_H. The glass
-        // keeps its bottom edge, so with more apps it only gets lower.
-        float tw = Math.min(L_TILE_H * 16f / 9 * k, (full - Math.max(0, n - 1) * gap) / Math.max(1, n));
-        float th = tw * 9f / 16;
+        // Square icons (Couch TV's dock); a banner is cropped to the square, never stretched. The glass keeps its
+        // bottom edge, so with more apps it only gets lower.
+        float tw = Math.min(L_TILE_H * k, (full - Math.max(0, n - 1) * gap) / Math.max(1, n));
+        float th = tw;
         float width = n * tw + Math.max(0, n - 1) * gap, left = (w - width) / 2f;
         float top = (L_PLATTER_TOP + L_TILE_H) * k - th;
         platterRect.set(left - pad, top, left + width + pad, top + th + 2 * pad);
@@ -1737,7 +1738,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         shadow.setColor(tone(0x1F000000, 0x52000000));
         shadows.draw(c, tmp, radius, SHADOW_BLUR * k, shadow);
         // White glass by day; smoked glass at night.
-        scene.liquid(c, platterRect, radius, tone(glassLight(), SMOKE), tone(0.42f, 0.12f), tone(0.03f, 0.08f),
+        // Over a scene: Couch TV's dark glass (a strong smoky tint, so the pill matches the photo behind it).
+        int tint = sceneShown ? Tokens.GLASS_TINT : tone(glassLight(), SMOKE);
+        float tintAlpha = sceneShown ? 0.58f : tone(0.42f, 0.12f), lift = sceneShown ? 0.03f : tone(0.03f, 0.08f);
+        scene.liquid(c, platterRect, radius, tint, tintAlpha, lift,
                 tone(30, 34) * k, tone(22, 28) * k, tone(0.65f, 0.95f), 1);
     }
 
@@ -2005,7 +2009,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             c.drawRoundRect(cell, r, r, tileFill);
             drawLogo(c, it, cell, s, 0);
         } else {
-            if (it.tile != null) roundImage(c, it.tile, it.tileShader, cell, r);
+            if (it.tile != null) coverImage(c, it.tile, it.tileShader, cell, r, 1);   // cropped to the square, not stretched
         }
     }
 

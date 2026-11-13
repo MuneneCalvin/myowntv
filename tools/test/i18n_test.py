@@ -4,8 +4,8 @@ import glob, json, os, sys
 os.chdir(os.path.join(os.path.dirname(__file__), "..", ".."))
 KEYS = ["Scenes"]
 files = sorted(glob.glob("app/assets/i18n/*.json"))
-if len(files) != 28:
-    sys.exit(f"FAIL expected 28 catalogues, found {len(files)}")
+if len(files) != 1:
+    sys.exit(f"FAIL expected the English catalogue only, found {len(files)}")
 bad = []
 for f in files:
     d = json.load(open(f, encoding="utf-8"))

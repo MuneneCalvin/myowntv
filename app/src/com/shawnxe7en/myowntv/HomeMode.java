@@ -106,7 +106,6 @@ final class HomeMode {
      * your brand's, see the README). The TV's own home screen and screensaver are added at switch time.
      */
     static final String[] DEBLOAT = {
-        "com.google.android.play.games", "com.google.android.youtube.tvmusic",        // Play Games, YouTube Music
         // TCL
         "com.tcl.magiconnectfree", "com.tcl.miracast",                                // screen mirroring apps
         "com.tcl.messagebox", "com.tcl.usercenter",                                   // TCL messages and account
@@ -145,6 +144,7 @@ final class HomeMode {
 
     /** Never turned off, not even by mistake (picture, sound, inputs, remote, store). Checked before every disable. */
     private static final Set<String> PROTECTED = new HashSet<>(Arrays.asList(
+        "com.google.android.youtube.tvmusic", "com.google.android.play.games",   // apps you use: never turned off, back on if an older switch did
         "com.tcl.ttvs", "com.tvos", "com.tcl.systemserver", "com.tcl.systemui.plugin", "com.tcl.tv", "com.tcl.tvinput",
         "com.tcl.hearaid", "com.dolby.android.audio.service", "com.tcl.globalkeyoverlay", "com.tcl.autopair",
         "com.tcl.UpdatePeripheral", "com.tcl.dashboard", "com.tcl.suspension", "com.tcl.providers.config",
@@ -421,13 +421,24 @@ final class HomeMode {
      * (RemoteKeys.serviceWanted).
      */
     static void ensureRemoteService(Context c, long delayMs) {
-        if (RemoteKeys.supported()) ModeJob.schedule(c, ModeJob.REMOTE, null, delayMs);
+        ModeJob.schedule(c, ModeJob.REMOTE, null, delayMs);   // also on a TV with no remote buttons: the Home-button watch needs it
+    }
+
+    /** MyOwnTV is the home screen in the safe way: the Home-button watch (RemoteKeyService) is to bring it back. */
+    static boolean watching(Context c) {
+        JSONObject s = state(c);
+        return HomeSwitch.SAFE && FREE.equals(s.optString("mode")) && !s.optBoolean("homeReverted");
+    }
+
+    /** The accessibility service runs for the Home-button watch, or for the remote's app buttons. */
+    private static boolean serviceNeeded(Context c) {
+        return watching(c) || RemoteKeys.serviceWanted();
     }
 
     static void ensureRemoteServiceNow(Context app) {
-        if (!RemoteKeys.supported() || !FREE.equals(state(app).optString("mode"))) return;
+        if (!FREE.equals(state(app).optString("mode"))) return;
         try (Adb adb = Adb.connect(app, 10_000, null)) {
-            remoteService(app, adb, RemoteKeys.serviceWanted());
+            remoteService(app, adb, serviceNeeded(app));
         } catch (IOException e) {
             AppLog.w("remote buttons service: " + e.getMessage());
         }
@@ -653,9 +664,9 @@ final class HomeMode {
             s.put("mode", FREE).put("since", System.currentTimeMillis()).put("homeReverted", false)
                     .put("disabled", new JSONArray(sorted(disabled))).put("setupHome", setupHome);
             save(c, s);
-            if (RemoteKeys.supported()) {
+            {
                 try {
-                    remoteService(c, adb, RemoteKeys.serviceWanted());
+                    remoteService(c, adb, serviceNeeded(c));
                 } catch (IOException e) {
                     AppLog.w("remote buttons service: " + e.getMessage());
                 }

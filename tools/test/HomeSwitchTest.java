@@ -18,6 +18,12 @@ public class HomeSwitchTest {
         check(HomeSwitch.failed("Error: Unknown operation string: AUTO_START"), "an unknown op is a failure");
         check(HomeSwitch.failed("Bad argument"), "Bad is a failure");
         check(!HomeSwitch.failed(""), "silence is success");
+        check(HomeSwitch.isTvHome("com.google.android.apps.tv.launcherx", "com.google.android.apps.tv.launcherx.home.HomeActivity"), "Google TV's home window");
+        check(!HomeSwitch.isTvHome("com.google.android.apps.tv.launcherx", "com.google.android.apps.tv.launcherx.search.SearchActivity"), "other windows of Google TV are left alone");
+        check(HomeSwitch.isTvHome("com.google.android.tvlauncher", "com.google.android.tvlauncher.MainActivity"), "classic Android TV home window");
+        check(!HomeSwitch.isTvHome("com.netflix.ninja", "com.netflix.ninja.MainActivity"), "an app's window is not a home");
+        check(!HomeSwitch.isTvHome("com.shawnxe7en.myowntv", "com.shawnxe7en.myowntv.HomeActivity"), "our own home is not Google's");
+        check(!HomeSwitch.isTvHome(null, "x") && !HomeSwitch.isTvHome("com.google.android.apps.tv.launcherx", null), "nulls");
         System.out.println("PASS");
     }
 }

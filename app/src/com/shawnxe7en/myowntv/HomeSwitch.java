@@ -23,6 +23,17 @@ final class HomeSwitch {
         return pkg.equals(GOOGLE_TV_HOME) || pkg.equals(CLASSIC_HOME) || pkg.equals(SETUP) || pkg.equals(recordedHomePkg);
     }
 
+    /**
+     * The window that is a TV's own home screen coming to the front (Google TV's, or classic Android TV's). On this TV the
+     * Home key still opens it even when MyOwnTV is the default home, so the Home-button watch (RemoteKeyService) brings
+     * MyOwnTV back when it sees this window. Only the home window: Google TV's other windows are left alone.
+     */
+    static boolean isTvHome(String pkg, String cls) {
+        if (pkg == null || cls == null) return false;
+        return pkg.equals(GOOGLE_TV_HOME) && cls.endsWith(".home.HomeActivity")
+                || pkg.equals(CLASSIC_HOME) && cls.endsWith(".MainActivity");
+    }
+
     /** Lets the app start in the background on brands that kill background apps (Skyworth, TCL); the op's name varies. */
     static String autoStartCommand(String pkg, boolean alternative) {
         return "appops set " + pkg + (alternative ? " APP_AUTO_START" : " AUTO_START") + " allow";

@@ -4393,70 +4393,6 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         return x <= 0.04045f ? x / 12.92f : (float) Math.pow((x + 0.055f) / 1.055f, 2.4);
     }
 
-    /** The quotes (as ever), or, over a scene, the Now Playing card: the prices stay in the drawer. */
-    private void drawTopExtras(Canvas c) {
-        if (sceneShown) drawNowPlayingCard(c);
-        else if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
-    }
-
-    private Bitmap npArt;
-    private BitmapShader npArtShader;
-    private final RectF npRect = new RectF(), npArtRect = new RectF();
-
-    /**
-     * What an app is playing, as a glass card at the top right under the round buttons: the cover, the title, the artist
-     * and the level bars. Nothing while nothing plays (Home Settings > Now Playing widget must be on).
-     */
-    private void drawNowPlayingCard(Canvas c) {
-        String title = playing.title;
-        if (title == null || playing.text == null) return;
-        sceneText();
-        float pad = 12 * k, art = 64 * k, gap = 16 * k, bars = NowPlaying.barsWidth(26 * k);
-        String by = playing.artist != null && !playing.artist.isEmpty() ? playing.artist : playing.app == null ? "" : playing.app;
-        float textW = Math.max(keepTitle.measureText(title), keepMeta.measureText(by));
-        float cardW = Math.min(520 * k, pad + art + gap + Math.min(textW, 330 * k) + gap + bars + pad);
-        float right = CONTENT_R * k, top = 170 * k, ch = art + 2 * pad;
-        npRect.set(right - cardW, top, right, top + ch);
-        float r = 26 * k;
-        fill.setShader(null);
-        fill.setColor(0x9920202A);
-        c.drawRoundRect(npRect, r, r, fill);
-        if (glassSheen == null || glassSheenH != ch) {
-            glassSheen = new LinearGradient(0, -ch / 2, 0, ch / 2, 0x33FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
-            glassSheenH = ch;
-        }
-        c.save();
-        c.translate(npRect.centerX(), npRect.centerY());
-        fill.setShader(glassSheen);
-        tmp.set(-cardW / 2, -ch / 2, cardW / 2, ch / 2);
-        c.drawRoundRect(tmp, r, r, fill);
-        fill.setShader(null);
-        c.restore();
-        tileRim.setStrokeWidth(1.6f * k);
-        tileRim.setColor(0x47FFFFFF);
-        tmp.set(npRect);
-        tmp.inset(0.8f * k, 0.8f * k);
-        c.drawRoundRect(tmp, r, r, tileRim);
-        npArtRect.set(npRect.left + pad, npRect.top + pad, npRect.left + pad + art, npRect.top + pad + art);
-        Bitmap cover = playing.art;
-        if (cover != null) {
-            if (cover != npArt) {
-                npArt = cover;
-                npArtShader = new BitmapShader(cover, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
-            }
-            coverImage(c, cover, npArtShader, npArtRect, 14 * k, 1);
-        } else {   // no cover from the app: the level bars' tile
-            fill.setColor(0xFF34343E);
-            c.drawRoundRect(npArtRect, 14 * k, 14 * k, fill);
-        }
-        float tx = npArtRect.right + gap, room = npRect.right - pad - bars - gap - tx;
-        fitPaint.set(keepTitle);
-        c.drawText(TextUtils.ellipsize(title, fitPaint, room, TextUtils.TruncateAt.END).toString(), tx, npRect.top + pad + 28 * k, keepTitle);
-        fitPaint.set(keepMeta);
-        c.drawText(TextUtils.ellipsize(by, fitPaint, room, TextUtils.TruncateAt.END).toString(), tx, npRect.top + pad + 58 * k, keepMeta);
-        NowPlaying.drawBars(c, npRect.right - pad - bars, npRect.centerY() + 13 * k, 26 * k, keepTitle, SystemClock.uptimeMillis() < barsUntil, barRect);
-    }
-
     private boolean keepRow() {
         return sceneShown && continueMode();
     }
@@ -5070,7 +5006,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (clockMode()) {
             titleRight = 0;
             drawClock(c);
-            drawTopExtras(c);
+            if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
             return;
         }
         if (keepRow()) {   // Couch TV's home: the date and weather, the clock (on the sky layer), "Keep watching" and its row
@@ -5078,7 +5014,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             sceneText().setTextAlign(Paint.Align.LEFT);
             c.drawText(Ui.tr("Continue Watching"), MARGIN * k, (KEEP_Y - 26) * k, sceneText());
             drawWatchRow(c);
-            drawTopExtras(c);
+            if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
             return;
         }
         if (picksRow()) {   // the TMDB picks as a row of glass cards under the clock, its tabs above the row
@@ -5089,7 +5025,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             for (int i = 0; i < cardSlots; i++) if (cardFocus[i].value > 0.02f && (topCard < 0 || cardFocus[i].value > cardFocus[topCard].value)) topCard = i;
             for (int i = 0; i < cardSlots; i++) if (i != topCard) drawPickCard(c, i);
             if (topCard >= 0) drawPickCard(c, topCard);
-            drawTopExtras(c);
+            if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
             return;
         }
         String hello = picksMode() ? Ui.tr("For You") : Ui.tr("Continue Watching");
@@ -5097,7 +5033,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         titleRight = MARGIN * k + lTitle.measureText(hello);
         if (!picksMode()) {
             if (continueMode()) drawWatchRow(c);
-            drawTopExtras(c);
+            if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
             return;
         }
         // Text tabs (the selected one in bold, in the main text color); with focus on the tabs, the selected one gets
@@ -5130,7 +5066,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         for (int i = 0; i < slots; i++) if (cardFocus[i].value > 0.02f && (top < 0 || cardFocus[i].value > cardFocus[top].value)) top = i;
         for (int i = 0; i < slots; i++) if (i != top) drawLightCard(c, i);
         if (top >= 0) drawLightCard(c, top);
-        drawTopExtras(c);
+        if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
     }
 
     private boolean picksOn() {

@@ -85,6 +85,9 @@ public class NowPlaying extends NotificationListenerService {
         volatile String text;
         /** The title alone (the app's package when it gives none): the line's other parts can change every second. */
         volatile String title;
+        /** For a card: the artist (or the app's subtitle), the app's name and the cover art, null when the app gives none. */
+        volatile String artist, app;
+        volatile android.graphics.Bitmap art;
 
         Watch(Context c, Runnable changed) {
             context = c;
@@ -142,9 +145,32 @@ public class NowPlaying extends NotificationListenerService {
                     break;
                 }
             }
-            if (Objects.equals(now, text)) return;
+            android.graphics.Bitmap cover = null;
+            String by = null, appName = null;
+            if (now != null) {
+                for (MediaController mc : controllers) {
+                    PlaybackState s = mc.getPlaybackState();
+                    int st = s == null ? PlaybackState.STATE_NONE : s.getState();
+                    if (st != PlaybackState.STATE_PLAYING && st != PlaybackState.STATE_BUFFERING && st != PlaybackState.STATE_CONNECTING) continue;
+                    MediaMetadata m = mc.getMetadata();
+                    if (m != null) {
+                        for (String key : new String[] {MediaMetadata.METADATA_KEY_ALBUM_ART, MediaMetadata.METADATA_KEY_ART, MediaMetadata.METADATA_KEY_DISPLAY_ICON}) {
+                            if (cover == null) cover = m.getBitmap(key);
+                        }
+                        CharSequence a = m.getText(MediaMetadata.METADATA_KEY_ARTIST);
+                        if (TextUtils.isEmpty(a)) a = m.getDescription().getSubtitle();
+                        by = TextUtils.isEmpty(a) ? null : a.toString().trim();
+                    }
+                    appName = labels.get(mc.getPackageName());
+                    break;
+                }
+            }
+            if (Objects.equals(now, text) && cover == art) return;
             title = nowTitle;
             text = now;
+            artist = by;
+            app = appName;
+            art = cover;
             changed.run();
         }
 

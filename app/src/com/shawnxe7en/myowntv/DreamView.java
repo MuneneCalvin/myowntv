@@ -48,7 +48,8 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     /** Photos 10% larger than the screen (the zoom goes up to 1.1 without upscaling). */
     private static final int PW = 2112, PH = 1188;
     private static final float MARGIN = 80, RIGHT = 1840, TITLE_W = 900, META_BASE = 1008;
-    private static final float SCENE_CLOCK_TOP = 110;
+    /** Couch TV's big clock: Antonio 330 px at 1080p, its top 172 px down, so the scenery overlaps the digits' bottom. */
+    private static final float SCENE_CLOCK_TOP = 172, SCENE_CLOCK_SIZE = 330;
     private static final float DATE_BASE = 92, CLOCK_TOP = 120, CLOCK_SIZE = 200, QUOTES_GAP = 52;
     private static final double DRIFT_PERIOD_S = 600;
     // The high and low and the stale prices line, made again only when they change (drawn on every frame).
@@ -142,6 +143,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     private float k = 1;
     private long minute = -1;
     private String clock = "", date = "";
+    private Paint sceneClockPaint;
     private Paint datePaint, clockPaint, weatherPaint, weatherDim, quotePaint, stalePaint;
     private Paint cornerDate, cornerQuote, cornerStale, cornerClock, labelPaint, metaPaint, hintPaint;
     private TextPaint titlePaint;
@@ -261,6 +263,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         datePaint = Ui.text(Ui.semibold, 36 * k, 0xD9FFFFFF);
         datePaint.setTextAlign(Paint.Align.CENTER);
         clockPaint = Ui.numbers(Ui.antonio, 210 * k, 0xF2FFFFFF);
+        sceneClockPaint = Ui.numbers(Ui.antonio, SCENE_CLOCK_SIZE * k, 0xFFFFFFFF);
         clockPaint.setTextAlign(Paint.Align.CENTER);
         clockPaint.setLetterSpacing(-0.01f);
         weatherPaint = Ui.numbers(Ui.medium, 30 * k, 0xC7FFFFFF);
@@ -712,7 +715,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             return;
         }
         final boolean centered = scenes != null;
-        final Paint paint = new Paint(centered ? clockPaint : cornerClock);
+        final Paint paint = new Paint(centered ? sceneClockPaint : cornerClock);
         paint.clearShadowLayer();
         paint.setColor(0xFFFFFFFF);
         float right = RIGHT * k, top = CLOCK_TOP * k;
@@ -914,26 +917,29 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
 
     private void drawContent(Canvas c) {
         float cx = w / 2f;
-        float clockCap = Ui.cap(clockPaint);
-        float clockBase = sceneShown ? SCENE_CLOCK_TOP * k + clockCap : h * 0.5f + clockCap / 2 - 10 * k;
-        c.drawText(date, cx, clockBase - clockCap - 34 * k, datePaint);
-        if (!(sceneShown && glass != null)) c.drawText(clock, cx, clockBase, clockPaint);
+        boolean sl = sceneShown;   // with a scene: the date and the weather share one line above the big clock
+        float clockCap = Ui.cap(sl ? sceneClockPaint : clockPaint);
+        float clockBase = sl ? SCENE_CLOCK_TOP * k + clockCap : h * 0.5f + clockCap / 2 - 10 * k;
+        float dateBase = clockBase - clockCap - 34 * k;
+        HomeData.Weather wx = data.weather;
+        boolean showWx = !Double.isNaN(wx.temp) && Prefs.weather();
+        if (showWx && (wx != rangeWeather || Ui.generation != rangeGeneration || Prefs.version != rangePrefs)) {
+            range = HomeData.highLow(wx, "  ");
+            rangeWeather = wx;
+            rangeGeneration = Ui.generation;
+            rangePrefs = Prefs.version;
+        }
+        String symbol = showWx ? Symbols.weather(wx.code, wx.isDay) : "", now = showWx ? HomeData.degrees(wx.temp) : "";
+        float sw = showWx ? Symbols.width(getContext(), symbol, 32 * k) : 0;
+        float width = showWx ? sw + 12 * k + weatherPaint.measureText(now) + 18 * k + weatherDim.measureText(range) : 0;
+        float dateW = datePaint.measureText(date), lineW = dateW + 36 * k + width;
+        c.drawText(date, sl && showWx ? cx - lineW / 2 + dateW / 2 : cx, dateBase, datePaint);
+        if (!(sl && glass != null)) c.drawText(clock, cx, clockBase, clockPaint);
 
         // Weather: symbol, temperature, high and low, centered under the clock.
-        HomeData.Weather wx = data.weather;
-        if (!Double.isNaN(wx.temp) && Prefs.weather()) {
-            float base = clockBase + 76 * k;
-            String symbol = Symbols.weather(wx.code, wx.isDay);
-            String now = HomeData.degrees(wx.temp);
-            if (wx != rangeWeather || Ui.generation != rangeGeneration || Prefs.version != rangePrefs) {
-                range = HomeData.highLow(wx, "  ");
-                rangeWeather = wx;
-                rangeGeneration = Ui.generation;
-                rangePrefs = Prefs.version;
-            }
-            float sw = Symbols.width(getContext(), symbol, 32 * k);
-            float width = sw + 12 * k + weatherPaint.measureText(now) + 18 * k + weatherDim.measureText(range);
-            float x = cx - width / 2;
+        if (showWx) {
+            float base = sl ? dateBase : clockBase + 76 * k;
+            float x = sl ? cx - lineW / 2 + dateW + 36 * k : cx - width / 2;
             Symbols.draw(getContext(), c, symbol, x + sw / 2, base - Ui.halfCap(weatherPaint), 32 * k, 0xC7FFFFFF);
             x += sw + 12 * k;
             c.drawText(now, x, base, weatherPaint);

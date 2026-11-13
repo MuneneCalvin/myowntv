@@ -64,7 +64,9 @@ final class Scene {
         try {
             aurora = new RuntimeShader(Shaders.AURORA);
             glass = new RuntimeShader(Shaders.GLASS);
-            liquid = new RuntimeShader(Shaders.LIQUID);
+            // Lite path: on a low-RAM TV the glass over a photo uses the blurred-bitmap version, not the lens shader.
+            boolean lite = Prefs.context() != null && HomeApps.lowRam(Prefs.context());
+            if (!lite) liquid = new RuntimeShader(Shaders.LIQUID);
             auroraPaint.setShader(aurora);
             glassPaint.setShader(glass);
             liquidPaint.setShader(liquid);

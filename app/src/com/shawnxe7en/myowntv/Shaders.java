@@ -182,11 +182,14 @@ final class Shaders {
         "    bg = bgAt(p);\n" +
         "  }\n" +
         "  half l = dot(bg, half3(0.2126, 0.7152, 0.0722));\n" +
-        "  bg = mix(half3(l), bg, 1.18) * 1.06;\n" +
+        "  bg = mix(half3(l), bg, " + Tokens.GLASS_SATURATE + ") * 1.06;\n" +
         "  half3 col = mix(bg, tint.rgb, tint.a) + half3(lift);\n" +
         "  float ny = d.y / halfSize.y;\n" +
         "  col *= half(1.0 - 0.12 * smoothstep(0.1, 1.0, ny));\n" +
-        "  col += half3(0.045 * (1.0 - smoothstep(-1.0, -0.15, ny)));\n" +
+        // The white veil: Tokens.veil() as a shader (t = 0 at the top edge, 1 at the bottom)
+        "  float vt = clamp(ny * 0.5 + 0.5, 0.0, 1.0);\n" +
+        "  col += half3(vt < 0.5 ? mix(" + Tokens.VEIL_TOP + ", " + Tokens.VEIL_MID + ", vt * 2.0)\n" +
+        "                        : mix(" + Tokens.VEIL_MID + ", " + Tokens.VEIL_BOTTOM + ", (vt - 0.5) * 2.0));\n" +
         "  float2 L = float2(-0.4, -0.917);\n" +
         "  float facing = clamp(dot(n, L), 0.0, 1.0);\n" +
         "  float back = clamp(-dot(n, L), 0.0, 1.0);\n" +

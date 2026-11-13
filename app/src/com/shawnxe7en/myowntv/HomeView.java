@@ -138,6 +138,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private GlassClock glassClock;
     private int sceneW, sceneH;
     private int[] sceneGlassPx;
+    private boolean relayoutLight;
     private boolean sceneShown;   // a scene is on the sky layer: the top shows the centered date and weather line only
     private LinearGradient sceneShade;
     private Paint sceneDate, sceneWeather;
@@ -1017,6 +1018,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     @Override public void doFrame(long frameTimeNanos) {
         if (!running) return;
+        if (relayoutLight) {
+            relayoutLight = false;
+            layoutLight();
+        }
         float dt = lastNanos == 0 ? 1 / 60f : Math.min(0.05f, (frameTimeNanos - lastNanos) / 1e9f);
         lastNanos = frameTimeNanos;
         long up = SystemClock.uptimeMillis();
@@ -1531,13 +1536,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (shown != sceneShown) {   // the top of the screen changes with it (centered header, or the flat clock)
             sceneShown = shown;
             heroDirty = true;
+            relayoutLight = true;   // the picks' tabs and cards move into the row under the clock (see doFrame)
         }
         if (!shown) drawLightSky(c);
     }
 
-    /** Scenes replace the home background where the clock is the top of the screen, or the Keep watching row sits under it (not with picks). */
+    /** Scenes replace the home background; the top of the screen is the clock, with Continue Watching or the picks as a row under it. */
     private boolean scenesOn() {
-        if (!Prefs.scenes() || !(clockMode() || continueMode())) return false;
+        if (!Prefs.scenes()) return false;   // under the clock: nothing, the Keep watching row, or the TMDB picks row
         if (glassClock == null) glassClock = new GlassClock(getContext());
         if (!glassClock.available()) return false;
         if (sceneLayer == null) sceneLayer = new SceneLayer(getContext());
@@ -4201,7 +4207,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void layoutLight() {
         if (lTab == null) return;
         // Text tabs; the focus pill extends 26 px past the text (the first tab's text starts at the margin).
-        float pad = 26 * k, tabTop = L_TABBAR_TOP * k, tabBottom = (L_TABBAR_TOP + L_TABBAR_H) * k;
+        float pad = 26 * k, tabTop = (picksRow() ? KEEP_Y - 82 : L_TABBAR_TOP) * k, tabBottom = tabTop + L_TABBAR_H * k;
         float x = MARGIN * k - pad;
         for (int i = 0; i < 3; i++) {
             float tw = Math.max(lTabOn.measureText(tabs()[i]), lTab.measureText(tabs()[i]));
@@ -4231,6 +4237,15 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** The cards side by side: the one at cardIndex wide, the others tall, sliding as `cardOpen` moves. */
     private void layoutCards() {
+        if (picksRow()) {   // the compact row: every card the same size, scrolling like the Keep watching row
+            float step = (KEEP_W + KEEP_GAP) * k, x = MARGIN * k - cardScroll.value * step;
+            for (int i = 0; i < Recs.MAX_CARDS; i++) {
+                cardRects[i].set(x, KEEP_Y * k, x + KEEP_W * k, (KEEP_Y + KEEP_H) * k);
+                snap(cardRects[i]);
+                x += step;
+            }
+            return;
+        }
         float top = L_CARDS_TOP * k, ch = L_CARD_H * k, g = L_CARD_GAP * k, tall = L_TALL_W * k;
         float wide = (CONTENT_R - MARGIN) * k - 2 * tall - 2 * g, x = MARGIN * k - cardScroll.value * (tall + g);
         for (int i = 0; i < Recs.MAX_CARDS; i++) {
@@ -4432,6 +4447,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         return sceneShown && continueMode();
     }
 
+    private boolean picksRow() {
+        return sceneShown && picksMode();
+    }
+
     private static float keepThumbW() {
         return (KEEP_H - 2 * KEEP_PAD) * 16f / 9;
     }
@@ -4457,6 +4476,96 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private Paint sceneMeta() {
         sceneText();
         return keepMeta;
+    }
+
+    private Paint sceneTab, sceneTabOn;
+
+    /** The picks' tabs (Explore, Movies, Shows) over a scene: white text, a white pill when they have the focus. */
+    private void drawSceneTabs(Canvas c) {
+        sceneText();
+        if (sceneTab == null) {
+            sceneTab = Ui.text(Ui.medium, 30 * k, 0xA6FFFFFF);
+            sceneTab.setShadowLayer(12 * k, 0, 2 * k, 0x66000000);
+            sceneTabOn = Ui.text(Ui.semibold, 30 * k, 0xFFFFFFFF);
+            sceneTabOn.setShadowLayer(12 * k, 0, 2 * k, 0x66000000);
+        }
+        float focus = Ui.clamp(topFocus[tab].value);
+        for (int i = 0; i < 3; i++) {
+            RectF r = topRects[i];
+            Paint p = i == tab ? sceneTabOn : sceneTab;
+            if (i == tab && focus > 0.01f) {
+                float sc = 1 + 0.05f * focus, rr = r.height() * sc / 2;
+                cell.set(r.centerX() - r.width() * sc / 2, r.centerY() - r.height() * sc / 2, r.centerX() + r.width() * sc / 2, r.centerY() + r.height() * sc / 2);
+                fill.setShader(null);
+                fill.setColor(Ui.alpha(0xFFFFFFFF, focus));
+                c.drawRoundRect(cell, rr, rr, fill);
+                sceneTabOn.setColor(blend(0xFFFFFFFF, L_INK, focus));
+            } else if (i == tab) {
+                sceneTabOn.setColor(0xFFFFFFFF);
+            }
+            c.drawText(tabs()[i], r.centerX() - p.measureText(tabs()[i]) / 2, r.centerY() + Ui.halfCap(p), p);
+        }
+    }
+
+    /** A TMDB pick as a Keep watching style card: the backdrop at the left, the service, the title, the details. */
+    private void drawPickCard(Canvas c, int i) {
+        sceneText();
+        RectF base = cardRects[i];
+        if (base.right < 0 || base.left > w || i >= cards.size()) return;
+        Recs.Pick p = cards.get(i);
+        float v = cardFocus[i].value, f = Ui.clamp(v), s = 1 + 0.04f * v;
+        float bw = base.width(), bh = base.height(), r0 = 28 * k, pad = KEEP_PAD * k;
+        float cx = base.centerX(), cy = base.centerY() - 6 * k * v;
+        c.save();
+        c.translate(cx, cy);
+        c.scale(s, s);
+        tmp.set(-bw / 2, -bh / 2, bw / 2, bh / 2);
+        if (f > 0.01f) {
+            tmp.offset(0, 12 * k * f);
+            shadowDeep.setColor(Ui.alpha(0xFF000000, 0.35f * f));
+            shadows.draw(c, tmp, r0, DEEP_BLUR * k, shadowDeep);
+            tmp.offset(0, -12 * k * f);
+        }
+        fill.setShader(null);
+        fill.setColor(0x9920202A);
+        c.drawRoundRect(tmp, r0, r0, fill);
+        if (glassSheen == null || glassSheenH != bh) {
+            glassSheen = new LinearGradient(0, -bh / 2, 0, bh / 2, 0x33FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
+            glassSheenH = bh;
+        }
+        fill.setShader(glassSheen);
+        c.drawRoundRect(tmp, r0, r0, fill);
+        fill.setShader(null);
+        float th = bh - 2 * pad, tw = keepThumbW();
+        keepPic.set(-bw / 2 + pad, -th / 2, -bw / 2 + pad + tw, th / 2);
+        Backdrop b = recs.backdrop(p);
+        Bitmap img = b == null ? null : b.wide;
+        Recs.Poster poster = recs.poster(p);
+        if (img != null) coverImage(c, img, b.wideShader, keepPic, 16 * k, 1);
+        else if (poster != null) coverImage(c, poster.bitmap, poster.shader, keepPic, 16 * k, 1);
+        else {
+            fill.setColor(0xFF2C2C34);
+            c.drawRoundRect(keepPic, 16 * k, 16 * k, fill);
+        }
+        float tx = keepPic.right + pad * 1.3f, ty = -bh / 2 + pad + 26 * k, room = bw / 2 - tx - pad;
+        String meta = p.meta == null ? "" : p.meta, service = "", detail = meta;
+        int cut = meta.lastIndexOf(" · ");
+        if (cut >= 0) {
+            service = meta.substring(cut + 3).toUpperCase(java.util.Locale.ROOT);
+            detail = meta.substring(0, cut);
+        }
+        fitPaint.set(keepApp);
+        c.drawText(TextUtils.ellipsize(service, fitPaint, room, TextUtils.TruncateAt.END).toString(), tx, ty, keepApp);
+        fitPaint.set(keepTitle);
+        c.drawText(TextUtils.ellipsize(p.title, fitPaint, room, TextUtils.TruncateAt.END).toString(), tx, ty + 40 * k, keepTitle);
+        fitPaint.set(keepMeta);
+        c.drawText(TextUtils.ellipsize(p.tag != null && !p.tag.isEmpty() ? p.tag : detail, fitPaint, room, TextUtils.TruncateAt.END).toString(), tx, ty + 72 * k, keepMeta);
+        tileRim.setStrokeWidth((1.6f + 2.4f * f) * k);
+        tileRim.setColor(Ui.alpha(0xFFFFFFFF, 0.28f + 0.72f * f));
+        float inset = tileRim.getStrokeWidth() / 2;
+        tmp.set(-bw / 2 + inset, -bh / 2 + inset, bw / 2 - inset, bh / 2 - inset);
+        c.drawRoundRect(tmp, r0 - inset, r0 - inset, tileRim);
+        c.restore();
     }
 
     /** A Keep watching card: dark glass, the picture at the left, the app, the title and the details, a progress bar. */
@@ -4955,6 +5064,17 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             sceneText().setTextAlign(Paint.Align.LEFT);
             c.drawText(Ui.tr("Continue Watching"), MARGIN * k, (KEEP_Y - 26) * k, sceneText());
             drawWatchRow(c);
+            if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
+            return;
+        }
+        if (picksRow()) {   // the TMDB picks as a row of glass cards under the clock, its tabs above the row
+            drawSceneHeader(c);
+            drawSceneTabs(c);
+            layoutCards();
+            int topCard = -1;
+            for (int i = 0; i < cardSlots; i++) if (cardFocus[i].value > 0.02f && (topCard < 0 || cardFocus[i].value > cardFocus[topCard].value)) topCard = i;
+            for (int i = 0; i < cardSlots; i++) if (i != topCard) drawPickCard(c, i);
+            if (topCard >= 0) drawPickCard(c, topCard);
             if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
             return;
         }

@@ -1752,8 +1752,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         shadows.draw(c, tmp, radius, SHADOW_BLUR * k, shadow);
         // White glass by day; smoked glass at night.
         // Over a scene: Couch TV's dark glass (a strong smoky tint, so the pill matches the photo behind it).
-        int tint = sceneShown ? Tokens.GLASS_TINT : tone(glassLight(), SMOKE);
-        float tintAlpha = sceneShown ? 0.64f : tone(0.42f, 0.12f), lift = sceneShown ? 0.02f : tone(0.03f, 0.08f);
+        boolean couch = Prefs.scenes();
+        int tint = couch ? Tokens.GLASS_TINT : tone(glassLight(), SMOKE);
+        float tintAlpha = couch ? 0.64f : tone(0.42f, 0.12f), lift = couch ? 0.02f : tone(0.03f, 0.08f);
         scene.liquid(c, platterRect, radius, tint, tintAlpha, lift,
                 tone(30, 34) * k, tone(22, 28) * k, tone(0.65f, 0.95f), 1);
     }
@@ -1979,7 +1980,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         float cx = base.centerX(), cy = base.centerY();
         cell.set(cx - bw * s / 2, cy - bh * s / 2, cx + bw * s / 2, cy + bh * s / 2);
         float r = r0 * s;
-        if (sceneShown && (it.logo != null || it.icon != null)) {   // Couch TV's dock: dark glass squares with a clear glyph
+        if (Prefs.scenes() && (it.logo != null || it.icon != null)) {   // Couch TV's dock: dark glass squares with a clear glyph (on every top layout)
             drawGlassTile(c, it, cx, cy, bw, bh, r0, s, fc);
             return;
         }

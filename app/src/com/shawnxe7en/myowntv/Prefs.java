@@ -291,6 +291,10 @@ final class Prefs {
     static void setTheme(String v) { put("theme", v); }
 
     /** Wi-Fi/Ethernet, Bluetooth and USB icons at the top-left of the home screen. */
+    /** Animated wallpaper scenes (Couch TV's) behind the clock; on by default. */
+    static boolean scenes() { return sp().getBoolean("scenes", true); }
+    static void setScenes(boolean on) { put("scenes", on); }
+
     static boolean statusIcons() { return sp().getBoolean("statusicons", false); }
     static void setStatusIcons(boolean on) { put("statusicons", on); }
 

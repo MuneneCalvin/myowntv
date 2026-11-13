@@ -48,6 +48,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     /** Photos 10% larger than the screen (the zoom goes up to 1.1 without upscaling). */
     private static final int PW = 2112, PH = 1188;
     private static final float MARGIN = 80, RIGHT = 1840, TITLE_W = 900, META_BASE = 1008;
+    private static final float SCENE_CLOCK_TOP = 110;
     private static final float DATE_BASE = 92, CLOCK_TOP = 120, CLOCK_SIZE = 200, QUOTES_GAP = 52;
     private static final double DRIFT_PERIOD_S = 600;
     // The high and low and the stale prices line, made again only when they change (drawn on every frame).
@@ -127,6 +128,10 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     private RuntimeShader glassShader;
     private boolean running, dirty = true, chromeDirty = true;
     private boolean fallback;       // the aurora with the clock (no photos)
+    private SceneLayer scenes;      // Couch TV's scenes behind a big glass clock (Prefs.scenes()), null when off
+    private boolean sceneShown;     // a scene is on screen: the glass clock is centered and drawContent leaves the clock to it
+    private Bitmap sceneGlassBitmap;
+    private int attachedW, attachedH;
     private boolean decoding;
     private int generation, slides;
     private Slide current, incoming, prepared;
@@ -186,6 +191,9 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         lastFrame = 0;
         failed.clear();
         fallback = photos().isEmpty();
+        scenes = Prefs.scenes() && glassShader != null ? new SceneLayer(getContext()) : null;
+        sceneShown = false;
+        glassFor = "";
         data.addListener(this);
         recs.addListener(this);
         data.refreshIfStale();
@@ -218,6 +226,10 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         }
         if (!gone.isEmpty()) handler.postDelayed(() -> { for (Bitmap b : gone) b.recycle(); }, 1000);
         current = incoming = prepared = null;
+        if (scenes != null) scenes.release();
+        scenes = null;
+        sceneShown = false;
+        sceneGlassBitmap = null;
         glass = null;
         slides = 0;
         glassFor = "";
@@ -466,6 +478,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         }
         if (running) advance(up);
         if (!glassFor.equals(clock)) buildGlass(clock);
+        if (scenes != null && drawScene(canvas, up)) return;
 
         float first = current == null ? 0 : fadeIn(up - firstAt, FIRST_MS);
         if (current == null || first < 1) {
@@ -644,6 +657,53 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         c.drawRect(g.x, g.y, g.x + g.cover.getWidth(), g.y + g.cover.getHeight(), glassPaint);
     }
 
+    /** The scene as the background, with the date and weather, the big glass clock and the scenery over it. */
+    private boolean drawScene(Canvas c, long up) {
+        if (w != attachedW || h != attachedH) {
+            scenes.attach(w, h);
+            attachedW = w;
+            attachedH = h;
+        }
+        boolean shown = scenes.draw(c, up);
+        if (shown != sceneShown) {
+            sceneShown = shown;
+            dirty = true;
+        }
+        if (!shown) return false;
+        Bitmap gb = scenes.glassCopy();
+        if (gb != sceneGlassBitmap && gb != null) {
+            sceneGlassBitmap = gb;
+            BitmapShader bs = new BitmapShader(gb, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+            glassShader.setInputShader("imageA", bs);
+            glassShader.setInputShader("imageB", bs);
+        }
+        if (dirty) {
+            Canvas rc = content.beginRecording(w, h);
+            try {
+                drawContent(rc);
+            } finally {
+                content.endRecording();
+            }
+            dirty = false;
+        }
+        Glass g = glass;
+        if (g != null && gb != null) {
+            shadowPaint.setAlpha(140);
+            c.drawBitmap(g.shadow, g.x, g.y + 6 * k, shadowPaint);
+            placeA[0] = placeA[1] = 0;
+            placeA[2] = (w / (float) gb.getWidth()) / Backdrop.PHOTO_FROST;   // drawGlass multiplies by PHOTO_FROST
+            placeB[0] = placeB[1] = 0;
+            placeB[2] = placeA[2];
+            drawGlass(c, 1, 0);
+        }
+        scenes.drawForeground(c);
+        content.setTranslationX(0);   // date, weather: over the scenery, not behind it
+        content.setTranslationY(0);
+        content.setAlpha(1);
+        content.draw(c);
+        return true;
+    }
+
     /** Builds the glass clock's digits in the background (once a minute) and swaps them in when they're ready. */
     private void buildGlass(String text) {
         glassFor = text;
@@ -651,16 +711,26 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             chromeDirty = true;
             return;
         }
-        final Paint paint = new Paint(cornerClock);
+        final boolean centered = scenes != null;
+        final Paint paint = new Paint(centered ? clockPaint : cornerClock);
         paint.clearShadowLayer();
         paint.setColor(0xFFFFFFFF);
-        final float right = RIGHT * k, top = CLOCK_TOP * k, scale = k;
+        float right = RIGHT * k, top = CLOCK_TOP * k;
+        paint.setTextAlign(Paint.Align.LEFT);   // clockPaint is centered; the glass bitmap is laid out from its left edge
+        if (centered) {   // the scenes' big clock: centered, its top 110 px down (Couch TV's .gclock), over the peaks
+            Rect ink = new Rect();
+            paint.getTextBounds(text, 0, text.length(), ink);
+            right = w / 2f + ink.width() / 2f;
+            top = SCENE_CLOCK_TOP * k;
+        }
+        final float fRight = right, fTop = top, scale = k;
         final int gen = generation;
         worker.execute(() -> {
-            Glass g = makeGlass(text, paint, right, top, scale);
+            Glass g = makeGlass(text, paint, fRight, fTop, scale);
             handler.post(() -> {
                 if (gen != generation || !text.equals(glassFor)) return;
                 glass = g;
+                dirty = true;
                 glassShader.setInputShader("slope", nearest(g.slope));
                 glassShader.setInputShader("cover", nearest(g.cover));
                 chromeDirty = true;
@@ -845,9 +915,9 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     private void drawContent(Canvas c) {
         float cx = w / 2f;
         float clockCap = Ui.cap(clockPaint);
-        float clockBase = h * 0.5f + clockCap / 2 - 10 * k;
+        float clockBase = sceneShown ? SCENE_CLOCK_TOP * k + clockCap : h * 0.5f + clockCap / 2 - 10 * k;
         c.drawText(date, cx, clockBase - clockCap - 34 * k, datePaint);
-        c.drawText(clock, cx, clockBase, clockPaint);
+        if (!(sceneShown && glass != null)) c.drawText(clock, cx, clockBase, clockPaint);
 
         // Weather: symbol, temperature, high and low, centered under the clock.
         HomeData.Weather wx = data.weather;

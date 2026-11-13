@@ -4484,10 +4484,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void drawSceneTabs(Canvas c) {
         sceneText();
         if (sceneTab == null) {
-            sceneTab = Ui.text(Ui.medium, 30 * k, 0xA6FFFFFF);
-            sceneTab.setShadowLayer(12 * k, 0, 2 * k, 0x66000000);
+            sceneTab = Ui.text(Ui.medium, 30 * k, 0xD9FFFFFF);
+            sceneTab.setShadowLayer(16 * k, 0, 2 * k, 0xB3000000);
             sceneTabOn = Ui.text(Ui.semibold, 30 * k, 0xFFFFFFFF);
-            sceneTabOn.setShadowLayer(12 * k, 0, 2 * k, 0x66000000);
+            sceneTabOn.setShadowLayer(16 * k, 0, 2 * k, 0xB3000000);
         }
         float focus = Ui.clamp(topFocus[tab].value);
         for (int i = 0; i < 3; i++) {

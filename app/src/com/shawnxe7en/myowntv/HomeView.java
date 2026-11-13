@@ -725,8 +725,6 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         recs.addListener(this);
         data.refreshIfStale();
         recs.refreshIfStale();
-        Photos.importInbox(getContext(), ownReady);   // photos a computer just sent
-        ImmichPhotos.syncIfDue(getContext(), ownReady);   // or a new choice from the Immich server, every 6 hours
         if (tvInputs != null) tvInputs.registerCallback(inputCallback, handler);
         startStatus();
         handler.postDelayed(tick, 15_000);
@@ -4106,11 +4104,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void updateCards() {
         cardSlots = Prefs.cards();
         if (!picksMode()) {
-            // No picks on screen: no cards, and the plain gradient behind, or with the clock your photo if there is one.
+            // No picks on screen: no cards, and the plain gradient behind (the scenes draw over it).
             if (!cards.isEmpty()) cards = new ArrayList<>();
-            boolean own = clockMode() && Photos.on(getContext());
-            Backdrop b = own ? Photos.backdrop(getContext(), ownReady) : null;
-            if (b != null || !own) showBackdrop(b);
+            showBackdrop(null);
             heroDirty = true;
             return;
         }
@@ -4129,20 +4125,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             List<Recs.Pick> other = recs.now(TAB_KIND[t]);
             for (int i = 0; i < Math.min(3, other.size()); i++) recs.backdrop(other.get(i));
         }
-        // Picks bring their own background; without them (no TMDB key), your photo if there is one.
-        boolean own = !picksOn() && Photos.on(getContext());
-        Backdrop b = own ? Photos.backdrop(getContext(), ownReady)
-                : cards.isEmpty() ? null : recs.backdrop(cards.get(Math.min(cardIndex, cards.size() - 1)));
-        if (b != null || (cards.isEmpty() && !own)) showBackdrop(b);
+        // Picks bring their own background.
+        Backdrop b = cards.isEmpty() ? null : recs.backdrop(cards.get(Math.min(cardIndex, cards.size() - 1)));
+        if (b != null || cards.isEmpty()) showBackdrop(b);
         heroDirty = true;
         spoken.focusMoved();    // new picks under the focused card
     }
 
     /** Your photo's background is ready (or new photos came in): draw it. */
-    private final Runnable ownReady = () -> {
-        if (running) updatePicks();
-    };
-
     // MARK: - Continue watching (Settings > Top of the screen)
 
     /** Picks need a TMDB key: without one, "picks" shows the clock, like "nothing". */
@@ -4976,6 +4966,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             sceneDate.setColor(0xF2FFFFFF);
             sceneWeather = new Paint(lWeather);
             sceneWeather.setColor(0xD9FFFFFF);
+            for (Paint p : new Paint[] {sceneDate, sceneWeather}) p.setShadowLayer(16 * k, 0, 2 * k, 0xA6000000);   // legible on a pale scene
         }
         float base = (GlassClock.TOP - 34) * k, cx = w / 2f;
         HomeData.Weather wx = data.weather;

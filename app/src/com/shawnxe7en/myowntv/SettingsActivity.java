@@ -105,7 +105,6 @@ public class SettingsActivity extends Activity {
                 case KeyEvent.KEYCODE_BACK:
                     if (event.getAction() == KeyEvent.ACTION_UP) {
                         boolean ok = event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER || event.getKeyCode() == KeyEvent.KEYCODE_ENTER;
-                        if (ok && Prefs.saverWatch()) preview.watch();
                         closePreview();
                     }
                     return true;
@@ -161,10 +160,9 @@ public class SettingsActivity extends Activity {
         private static final String ORDER_ROW = "#order";
         private int pickFor, pickCurrent, pickScroll;   // pickFor: the remote button (index + 1)
         private float touchX, touchY;
-        private static final int PICK_CITY = 0, PICK_LANGUAGE = -1, PICK_SLEEP = -2, PICK_PLACE = -3, PICK_PHOTOS = -4,
-                PICK_ALBUM = -5;
+        private static final int PICK_CITY = 0, PICK_LANGUAGE = -1, PICK_SLEEP = -2, PICK_PLACE = -3;
         /**
-         * The pickers from PICK_SLEEP down (Sleep Timer's, then My Photos' with Immich): their choices as {value, name},
+         * The pickers from PICK_SLEEP down (Sleep Timer's): their choices as {value, name},
          * and the value now.
          */
         private final List<String[]> choices = new ArrayList<>();
@@ -245,12 +243,10 @@ public class SettingsActivity extends Activity {
                     if (newest != null) announceForAccessibility(newest.optString("text"));
                 }
                 wasBusy = nowBusy;
-                // Redrawn only when something shown changed: also My Photos' count (Immich's arrive while it shows) and
-                // the minute (the notices' "{n} min ago").
+                // Redrawn only when something shown changed: also the minute (the notices' "{n} min ago").
                 String stamp = state.toString() + recs.toString() + ":" + sleepLeft + ":" + whyNow
                         + ":" + hasKey + ":" + pendingAt + ":" + stalled + ":" + busy()
-                        + ":" + (Trakt.available() ? traktValue() : "") + ":" + System.currentTimeMillis() / 60_000
-                        + ":" + (screen == HOME_SETTINGS ? Photos.files(getContext()).size() : 0);
+                        + ":" + (Trakt.available() ? traktValue() : "") + ":" + System.currentTimeMillis() / 60_000;
                 if (!stamp.equals(pollStamp)) invalidate();
                 pollStamp = stamp;
                 handler.postDelayed(this, busy() ? 500 : 2000);
@@ -404,7 +400,6 @@ public class SettingsActivity extends Activity {
             if (watchGrantPending) handler.postDelayed(askWatch, WATCH_GRANT_MS);
             invalidate();
             spoken.readAgain();
-            Photos.importInbox(getContext(), this::invalidate);   // photos a computer just sent
         }
 
         void pause() {
@@ -916,11 +911,7 @@ public class SettingsActivity extends Activity {
                     } else {
                         if (backDown && !e.isCanceled()) {
                             if (screen == HOME_SETTINGS) commitWatch();
-                            if (screen == PICKER && pickFor == PICK_ALBUM) {
-                                openPhotoSources();
-                            } else if (screen == PICKER && pickFor == PICK_PHOTOS) {
-                                showSettingsRow(PHOTOS_ROW);
-                            } else if (screen == PICKER && pickFor <= PICK_SLEEP) {
+                            if (screen == PICKER && pickFor <= PICK_SLEEP) {
                                 focus = powerFocus(pickFor == PICK_SLEEP ? P_SLEEP : P_WHERE);
                                 pickScroll = 0;   // the picker's scroll isn't this short list's
                                 screen = POWER;
@@ -973,10 +964,10 @@ public class SettingsActivity extends Activity {
          *  Watching's apps, watch from the screensaver, Android apps, status icons, at power-on, Live TV button, weather, city, forecast,
          *  now playing, scenes, quotes, one row per coin, then the TMDB and Watchmode keys and
          *  the keys (the last rows). */
-        private static final int CLOCK_ROW = 3, PHOTOS_ROW = 4, TOP_ROW = 6, PICKS_ROW = 7, WATCH_ROW = 8,
-                SAVER_ROW = 9, ANDROID_APPS_ROW = 10, STATUS_ICONS_ROW = 11, POWER_ON_ROW = 12,
-                LIVE_BUTTON_ROW = 13, WEATHER_ROW = 14, CITY_ROW = 15, FORECAST_ROW = 16, PLAYING_ROW = 17,
-                SCENES_ROW = 18, QUOTES_ROW = 19, COIN_ROWS = QUOTES_ROW + 1;
+        private static final int CLOCK_ROW = 3, TOP_ROW = 5, PICKS_ROW = 6, WATCH_ROW = 7,
+                ANDROID_APPS_ROW = 8, STATUS_ICONS_ROW = 9, POWER_ON_ROW = 10,
+                LIVE_BUTTON_ROW = 11, WEATHER_ROW = 12, CITY_ROW = 13, FORECAST_ROW = 14, PLAYING_ROW = 15,
+                SCENES_ROW = 16, QUOTES_ROW = 17, COIN_ROWS = QUOTES_ROW + 1;
         /** Home Settings rows on screen at once (what fits above the hints at 1080p); a longer list scrolls. */
         private static final int SETTINGS_VISIBLE = 10;
 
@@ -990,12 +981,10 @@ public class SettingsActivity extends Activity {
             l.add(Ui.tr("Temperature"));
             l.add(Ui.tr("Theme"));
             l.add(Ui.tr("Clock"));
-            l.add(Ui.tr("My Photos"));
             l.add(Ui.tr("Navigation sounds"));
             l.add(Ui.tr("Top of the screen"));
             l.add(Ui.tr("Picks"));
             l.add(Ui.tr("Continue Watching apps"));
-            l.add(Ui.tr("Watch from the screensaver"));
             l.add(Ui.tr("Android apps"));
             l.add(Ui.tr("Status icons"));   // before the weather widget: City and Forecast are the widget's
             l.add(Ui.tr("At power-on"));
@@ -1084,15 +1073,10 @@ public class SettingsActivity extends Activity {
             v[1] = unit.equals("C") ? "°C" : unit.equals("F") ? "°F" : Ui.tr("unit|Automatic");
             String theme = Prefs.theme();
             v[2] = theme.equals("light") ? Ui.tr("Light") : theme.equals("dark") ? Ui.tr("Dark") : Ui.tr("Automatic");
-            int photos = Photos.files(getContext()).size();
-            v[PHOTOS_ROW] = photos == 0 ? Ui.tr("photos|None")
-                    : Prefs.photos() ? Ui.plural("plural|one:{n} photo|other:{n} photos", photos) : Ui.tr("Off");
-            if (ImmichPhotos.configured(getContext())) v[PHOTOS_ROW] = immichPhotosValue(photos);
             String clock = Prefs.clockFormat();
             v[CLOCK_ROW] = clock.equals("24") ? Ui.tr("24 hours") : clock.equals("12") ? Ui.tr("12 hours") : Ui.tr("Automatic");
-            v[5] = onOff(Prefs.sounds());
+            v[4] = onOff(Prefs.sounds());   // Navigation sounds
             v[PICKS_ROW] = "›";   // opens its own screen: Picks per tab and Picks from
-            v[SAVER_ROW] = onOff(Prefs.saverWatch());
             String top = Prefs.topContent();
             v[TOP_ROW] = top.equals(Prefs.TOP_CONTINUE) ? Ui.tr("Continue Watching")
                     : top.equals(Prefs.TOP_NONE) ? Ui.tr("Clock")
@@ -1153,8 +1137,7 @@ public class SettingsActivity extends Activity {
                 case HOME_SETTINGS:
                     return pickScroll + i == PLAYING_ROW ? Capabilities.NEED_LISTENER
                             : pickScroll + i == POWER_ON_ROW ? Capabilities.NEED_LIVE_TV
-                            : pickScroll + i == LIVE_BUTTON_ROW ? Capabilities.NEED_HDMI
-                            : pickScroll + i == SAVER_ROW ? Capabilities.NEED_SCREENSAVER : null;
+                            : pickScroll + i == LIVE_BUTTON_ROW ? Capabilities.NEED_HDMI : null;
                 case POWER: {
                     int id = powerRows()[i];
                     return id == P_WHERE ? Capabilities.NEED_OVERLAY : null;
@@ -1455,19 +1438,13 @@ public class SettingsActivity extends Activity {
                     SleepOverlay.update(getContext());   // the pill's glass follows
                     break;
                 }
-                case PHOTOS_ROW:
-                    if (ImmichPhotos.configured(getContext())) return;   // OK opens the choice of source
-                    if (Photos.files(getContext()).isEmpty()) return;
-                    Prefs.setPhotos(!Prefs.photos());
-                    return;
                 case CLOCK_ROW: {
                     int at = java.util.Arrays.asList(CLOCKS).indexOf(Prefs.clockFormat());
                     Prefs.setClockFormat(CLOCKS[(at + dir + CLOCKS.length) % CLOCKS.length]);
                     break;
                 }
-                case 5: Prefs.setSounds(!Prefs.sounds()); break;
+                case 4: Prefs.setSounds(!Prefs.sounds()); break;
                 case PICKS_ROW: return;
-                case SAVER_ROW: Prefs.setSaverWatch(!Prefs.saverWatch()); break;
                 case TOP_ROW: {
                     int at = java.util.Arrays.asList(Prefs.TOP_CONTENT).indexOf(Prefs.topContent());
                     String next = Prefs.TOP_CONTENT[(at + dir + Prefs.TOP_CONTENT.length) % Prefs.TOP_CONTENT.length];
@@ -1821,86 +1798,6 @@ public class SettingsActivity extends Activity {
                 status.draw(c);
                 c.restore();
             }
-        }
-
-        // MARK: - My Photos (sent from a computer: tools/photos.py)
-
-        /** OK on My Photos: asks, then deletes them all. */
-        private void askRemovePhotos() {
-            int n = Photos.files(getContext()).size();
-            if (n == 0) return;
-            AlertDialog dialog = new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle(Ui.plural("plural|one:Remove {n} photo?|other:Remove {n} photos?", n))
-                    .setPositiveButton(Ui.tr("Remove"), (d, which) -> {
-                        Photos.removeAll(getContext());
-                        invalidate();
-                        spoken.focusMoved();
-                    })
-                    .setNegativeButton(Ui.tr("Cancel"), null)
-                    .show();
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();   // one stray OK keeps them
-        }
-
-        // MARK: - My Photos from an Immich server (ImmichPhotos)
-
-        private boolean albumsAsked;
-
-        /** My Photos with an Immich server: where they come from, and how many came. */
-        private String immichPhotosValue(int photos) {
-            if (!albumsAsked) {
-                albumsAsked = true;
-                ImmichPhotos.loadAlbums(getContext(), this::invalidate);
-            }
-            String source = Prefs.photoSource();
-            if ("default".equals(source)) return Ui.tr("photos|Default");
-            if (!Prefs.photos()) return Ui.tr("Off");   // nothing syncs: OK on a choice turns it on again
-            String from = "album".equals(source) ? Ui.trf("Immich: {album}", "album", Prefs.photoAlbumName()) : Ui.tr("Immich: all");
-            return photos == 0 ? from : from + " · " + Ui.plural("plural|one:{n} photo|other:{n} photos", photos);
-        }
-
-        /** OK on My Photos with an Immich server: the picks' photos, all of Immich, or one of its albums. */
-        private void openPhotoSources() {
-            List<String[]> list = new ArrayList<>();
-            list.add(new String[] {"default", Ui.tr("photos|Default")});
-            list.add(new String[] {"immich", Ui.tr("Immich: all photos")});
-            list.add(new String[] {"album", Ui.tr("Immich albums") + "  ›"});
-            openChoices(PICK_PHOTOS, list, Prefs.photoSource());
-        }
-
-        private void openAlbums() {
-            List<String[]> list = new ArrayList<>();
-            for (ImmichPhotos.Album a : ImmichPhotos.albums) list.add(new String[] {a.id, a.name});
-            openChoices(PICK_ALBUM, list, "album".equals(Prefs.photoSource()) ? Prefs.photoAlbum() : "");
-        }
-
-        /** OK in My Photos' lists: applied (the sync starts now), and back to its row. */
-        private void pickPhotoSource() {
-            String[] choice = choices.get(pickScroll + focus);
-            if (pickFor == PICK_PHOTOS && "album".equals(choice[0])) {
-                if (!ImmichPhotos.albums.isEmpty()) {
-                    openAlbums();
-                    return;
-                }
-                // Not read yet: the list opens when they come
-                ImmichPhotos.loadAlbums(getContext(), () -> {
-                    if (screen == PICKER && pickFor == PICK_PHOTOS && !ImmichPhotos.albums.isEmpty()) {
-                        openAlbums();
-                        spoken.focusMoved();
-                    }
-                    invalidate();
-                });
-                return;
-            }
-            boolean album = pickFor == PICK_ALBUM;
-            String source = album ? "album" : choice[0], id = album ? choice[0] : "", name = album ? choice[1] : "";
-            if (!source.equals(Prefs.photoSource()) || !id.equals(Prefs.photoAlbum())) {
-                Prefs.setPhotoSource(source, id, name);
-                ImmichPhotos.sourceChanged(getContext());
-            }
-            // Also when it's the same choice: My Photos turned off earlier (before the key came) is on again
-            Prefs.setPhotos(!"default".equals(source));
-            ImmichPhotos.syncIfDue(getContext(), null);   // the new source starts coming now, not at the next home screen
-            showSettingsRow(PHOTOS_ROW);
         }
 
         private void searchCity(String name) {
@@ -2273,7 +2170,6 @@ public class SettingsActivity extends Activity {
             String title = pickFor == PICK_CITY ? Ui.tr("City")
                     : pickFor == PICK_LANGUAGE ? Ui.tr("Language")
                     : pickFor == PICK_SLEEP ? Ui.tr("Sleep Timer") : pickFor == PICK_PLACE ? Ui.tr("Position")
-                    : pickFor == PICK_PHOTOS ? Ui.tr("My Photos") : pickFor == PICK_ALBUM ? Ui.tr("Immich albums")
                     : keyLabels()[pickFor - 1];
             c.drawText(title, LIST_X * k + 30 * k, (LIST_TOP - 24) * k, heading);
             int rows = rowCount();
@@ -2485,15 +2381,9 @@ public class SettingsActivity extends Activity {
             }
             Paint hint = Ui.text(Ui.regular, 23 * k, 0x8CFFFFFF);
             float hy = (LIST_TOP + 20 + rows * pitch + 36) * k;
-            // A list longer than the screen says where we are in it, as the app picker does. Photos say where they come
-            // from; on the Sleep Timer screen, the timer and Position open a list on OK.
+            // A list longer than the screen says where we are in it, as the app picker does; on the Sleep Timer screen, the timer and Position open a list on OK.
             String where = rows < labels.length ? (from + focus + 1) + " / " + labels.length + "  ·  " : "";
-            c.drawText(where + (screen == HOME_SETTINGS && from + focus == PHOTOS_ROW ? (ImmichPhotos.configured(getContext())
-                    ? Ui.tr("OK chooses where they come from: default, Immich or an album.")
-                    : Photos.files(getContext()).isEmpty()
-                    ? Ui.tr("Send them from a computer: see “Your own photos” in the README.")
-                    : Ui.tr("OK removes them; the arrows turn them on or off."))
-                    : screen == POWER && powerRow() != P_SHOW && unavailable(focus) == null ? Ui.tr("OK opens the list. ← → change the value.")
+            c.drawText(where + (screen == POWER && powerRow() != P_SHOW && unavailable(focus) == null ? Ui.tr("OK opens the list. ← → change the value.")
                     : screen == HOME_SETTINGS && from + focus == POWER_ON_ROW && unavailable(focus) == null
                     ? Ui.tr("Only after a full start, not from standby.")
                     : screen == HOME_SETTINGS && (from + focus == keyRow() || from + focus == watchmodeRow()) ? Ui.tr("OK: send it from your phone, or type it.")
@@ -2535,8 +2425,6 @@ public class SettingsActivity extends Activity {
                 Prefs.setCity(city[1], city[2], city[3]);
                 HomeData.get(c).settingsChanged();
                 showSettingsRow(CITY_ROW);
-            } else if (screen == PICKER && (pickFor == PICK_PHOTOS || pickFor == PICK_ALBUM)) {
-                pickPhotoSource();
             } else if (screen == PICKER && pickFor <= PICK_SLEEP) {
                 pickPower();
             } else if (screen == PICKER && pickFor == PICK_LANGUAGE) {
@@ -2578,11 +2466,6 @@ public class SettingsActivity extends Activity {
                 openPicker(PICK_LANGUAGE);
             } else if (screen == HOME_SETTINGS && pickScroll + focus == CITY_ROW) {
                 askCity();
-                return;
-            } else if (screen == HOME_SETTINGS && pickScroll + focus == PHOTOS_ROW && ImmichPhotos.configured(getContext())) {
-                openPhotoSources();
-            } else if (screen == HOME_SETTINGS && pickScroll + focus == PHOTOS_ROW) {
-                askRemovePhotos();
                 return;
             } else if (screen == HOME_SETTINGS && (pickScroll + focus == keyRow() || pickScroll + focus == watchmodeRow())) {
                 openKeyScreen(pickScroll + focus == watchmodeRow());

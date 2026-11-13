@@ -225,21 +225,7 @@
                 android:resource="@xml/remote_key_service" />
         </service>
 
-        <!-- tools/photos.py writes photos here where adb can't reach the app's external folder (Android 11, Fire OS 8);
-             only adb's shell may write (PhotoInbox checks). -->
-        <provider
-            android:name=".PhotoInbox"
-            android:authorities="com.shawnxe7en.myowntv.photos"
-            android:exported="true" />
-
-        <!-- tools/send_key.py writes keys that stay out of the APK here (the Immich key, Home Assistant's token); only
-             adb's shell may write (Secrets checks). -->
-        <provider
-            android:name=".Secrets"
-            android:authorities="com.shawnxe7en.myowntv.secrets"
-            android:exported="true" />
-
-        <!-- The sleep timer's minutes left over any app, while the timer runs. A process of its own: a foreground
+                        <!-- The sleep timer's minutes left over any app, while the timer runs. A process of its own: a foreground
              service in :home would keep the whole home screen in memory under the app in front. -->
         <service
             android:name=".SleepOverlay"

@@ -27,7 +27,7 @@ final class GlassClock {
     private final Paint paint = new Paint();
     private final Paint shadowPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private RuntimeShader shader;
-    private DreamView.Glass glass;
+    private GlassDigits.Glass glass;
     private String builtFor = "", building = "";
     private Bitmap boundCopy;
     private int generation;
@@ -46,6 +46,11 @@ final class GlassClock {
         return shader != null;
     }
 
+    /** The digits are built and ready to draw. */
+    boolean ready() {
+        return glass != null;
+    }
+
     /** Builds the digits for `text` if they aren't (or aren't being) built; `ready` runs on the main thread when they are. */
     void update(String text, Paint font, int w, int h, float k, Runnable ready) {
         if (shader == null || text.isEmpty() || text.equals(builtFor) || text.equals(building)) return;
@@ -60,14 +65,14 @@ final class GlassClock {
         final float right = w / 2f + ink.width() / 2f, top = TOP * k;
         final int gen = generation;
         worker.execute(() -> {
-            DreamView.Glass g = DreamView.makeGlass(text, p, right, top, k);
+            GlassDigits.Glass g = GlassDigits.makeGlass(text, p, right, top, k);
             main.post(() -> {
                 if (gen != generation) return;
                 glass = g;
                 builtFor = text;
                 building = "";
-                shader.setInputShader("slope", DreamView.nearest(g.slope));
-                shader.setInputShader("cover", DreamView.nearest(g.cover));
+                shader.setInputShader("slope", GlassDigits.nearest(g.slope));
+                shader.setInputShader("cover", GlassDigits.nearest(g.cover));
                 ready.run();
             });
         });
@@ -75,7 +80,7 @@ final class GlassClock {
 
     /** The shadow and the glass digits over what is drawn so far; `copy` is the scene's blurred copy. */
     void draw(Canvas c, Bitmap copy, int w, float k) {
-        DreamView.Glass g = glass;
+        GlassDigits.Glass g = glass;
         if (g == null || shader == null || copy == null) return;
         if (copy != boundCopy) {
             boundCopy = copy;

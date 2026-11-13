@@ -325,8 +325,6 @@ final class Prefs {
     static void setSounds(boolean on) { put("sounds", on); }
 
     /** OK on the screensaver opens the title it shows, in its app; any other key only closes it. Off: any key closes it. */
-    static boolean saverWatch() { return sp().getBoolean("saverWatch", false); }
-    static void setSaverWatch(boolean on) { put("saverWatch", on); }
 
     // MARK: - Top of the home screen
 
@@ -385,23 +383,6 @@ final class Prefs {
 
     static boolean quotes() { return sp().getBoolean("quotes", Config.SHOW_CRYPTO); }
     static void setQuotes(boolean on) { put("quotes", on); }
-
-    /** Your photos (Photos, sent from a computer) on the screensaver and behind the home screen, once imported. */
-    static boolean photos() { return sp().getBoolean("photos", true); }
-    static void setPhotos(boolean on) { put("photos", on); }
-
-    /**
-     * With an Immich server, where My Photos come from: "default" (none of yours: the picks' photos, as without
-     * Immich), "immich" (all its photos) or "album" (photoAlbum, its id; photoAlbumName to show).
-     */
-    static String photoSource() { return sp().getString("photoSource", "immich"); }
-    static String photoAlbum() { return sp().getString("photoAlbum", ""); }
-    static String photoAlbumName() { return sp().getString("photoAlbumName", ""); }
-
-    static void setPhotoSource(String source, String album, String name) {
-        sp().edit().putString("photoSource", source).putString("photoAlbum", album).putString("photoAlbumName", name).apply();
-        version++;
-    }
 
     static boolean coin(int i) { return sp().getBoolean("coin" + i, true); }
     static void setCoin(int i, boolean on) { put("coin" + i, on); }

@@ -68,7 +68,7 @@ final class Ui {
     static volatile String language = "en";
     /** Bumped when the language changes: text cached by the screens is made again. */
     static volatile int generation;
-    static Typeface thin, light, displayMedium, displaySemibold, regular, medium, semibold;
+    static Typeface antonio, thin, light, displayMedium, displaySemibold, regular, medium, semibold;
     private static boolean loaded;
     private static final Rect BOUNDS = new Rect();
     private static final RectF OVAL = new RectF();
@@ -78,6 +78,7 @@ final class Ui {
         loaded = true;
         AssetManager a = c.getAssets();
         thin = font(a, 32, 200);
+        antonio = antonio(a);
         light = font(a, 32, 300);
         displayMedium = font(a, 32, 500);
         displaySemibold = font(a, 32, 600);
@@ -105,6 +106,15 @@ final class Ui {
     private static final class Weighted {
         static Typeface create(int weight) {
             return Typeface.create(Typeface.DEFAULT, weight, false);
+        }
+    }
+
+    /** Antonio Light, the clock's digits; Inter thin if the file is missing. */
+    private static Typeface antonio(AssetManager a) {
+        try {
+            return Typeface.createFromAsset(a, "fonts/Antonio-Light.ttf");
+        } catch (RuntimeException e) {
+            return thin;
         }
     }
 

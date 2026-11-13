@@ -1,5 +1,5 @@
 #!/bin/sh
-# All JVM-side tests (no Android needed): Tokens, Spring.easeOut, SceneCycle, scene assets.
+# All host-side tests (no Android needed): Tokens, Spring.easeOut, SceneCycle, scene assets, i18n catalogues.
 set -e
 cd "$(dirname "$0")/../.."
 S=app/src/com/shawnxe7en/myowntv
@@ -9,4 +9,5 @@ java -cp "$OUT" TokensTest
 java -cp "$OUT" com.shawnxe7en.myowntv.EaseTest
 java -cp "$OUT" com.shawnxe7en.myowntv.SceneCycleTest
 tools/test/scenes_test.sh
+python3 tools/test/i18n_test.py
 rm -rf "$OUT"

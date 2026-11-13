@@ -465,5 +465,6 @@
  "{time} left": "{time} left",
  "{url}, code {code}": "{url}, code {code}",
  "{version} is out: build it again": "{version} is out: build it again",
- "← → to move · OK to drop · Back to cancel": "← → to move · OK to drop · Back to cancel"
+ "← → to move · OK to drop · Back to cancel": "← → to move · OK to drop · Back to cancel",
+ "Scenes": "Scenes"
 }

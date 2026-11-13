@@ -465,5 +465,6 @@
  "{time} left": "المتبقي {time}",
  "{url}, code {code}": "{url}، الرمز {code}",
  "{version} is out: build it again": "صدر الإصدار {version}: أعد بناء التطبيق",
- "← → to move · OK to drop · Back to cancel": "← → للنقل · OK للإفلات · الرجوع للإلغاء"
+ "← → to move · OK to drop · Back to cancel": "← → للنقل · OK للإفلات · الرجوع للإلغاء",
+ "Scenes": "المشاهد"
 }

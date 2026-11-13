@@ -1,6 +1,7 @@
 # Plan: restyle fork of Free My TV with Couch TV's look and scenes
 
-Status: scaffold only. Nothing here has been built or run on a TV yet (no Android SDK where it was made).
+Status: SUPERSEDED. This was the first sketch; it was built and runs on the TV. The design and the plan actually followed are
+in `docs/superpowers/specs/` and `docs/superpowers/plans/`; test results in `docs/test-notes.md`. Kept for history.
 
 ## Decisions made
 - Base: Free My TV (native Java, light, already has shader glass + a glass clock). Android TV / Google TV only.

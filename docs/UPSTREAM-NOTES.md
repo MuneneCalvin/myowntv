@@ -1,3 +1,7 @@
+> **Stale in parts:** these are Free My TV's own developer notes, kept for reference. This fork removed the LG and Samsung
+> ports, My Photos and Immich, Home Assistant, the self-updater, Recent Apps and most languages, and `tools/send_key.py`,
+> `tools/photos.py` and `tools/check.sh` are gone. Plex and Trakt are still in the code but not set up.
+
 # Free My TV: notes for Claude
 
 A home screen for Google TV and Android TV that replaces the stock one, plus a settings app that switches between

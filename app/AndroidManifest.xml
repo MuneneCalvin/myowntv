@@ -167,21 +167,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Fire TV: the same home screen opened as a regular app (no resumeWhilePausing, which leaves window focus on
-             Amazon's paused launcher on Fire OS). -->
-        <activity
-            android:name=".FireHomeActivity"
-            android:process=":home"
-            android:exported="false"
-            android:label="MyOwnTV"
-            android:launchMode="singleTask"
-            android:taskAffinity="com.shawnxe7en.myowntv.settings"
-            android:excludeFromRecents="true"
-            android:screenOrientation="landscape"
-            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
-            android:theme="@style/MyOwnTV.Home" />
-
-        <!-- The quick settings panel the remote's Settings button opens in MyOwnTV mode (RemoteKeys), over what's
+                <!-- The quick settings panel the remote's Settings button opens in MyOwnTV mode (RemoteKeys), over what's
              playing: a window on the left of the screen, not the whole screen. -->
         <activity
             android:name=".QuickPanelActivity"

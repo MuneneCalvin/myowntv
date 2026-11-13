@@ -47,12 +47,6 @@ final class HomeMode {
     static final String FREE = "free", ORIGINAL = "original";
 
     /**
-     * Fire TV (Fire OS): Amazon's launcher keeps the Home button (`priority=950` on `CATEGORY_HOME`), so the switch
-     * refuses MyOwnTV mode while Original and the watchdog still run.
-     */
-    static final boolean AMAZON = "Amazon".equalsIgnoreCase(Build.MANUFACTURER) || "Amazon".equalsIgnoreCase(Build.BRAND);
-
-    /**
      * Where switching the home screen kept a TV from starting again, so the switch refuses MyOwnTV mode and a TV
      * already in it goes back to Original. Kalley 43G200 turns Google TV's setup app back on at every start: without its
      * home screen the next start looped at the logo, and that TV only came back with a USB reflash (CleanYourTV,
@@ -320,7 +314,6 @@ final class HomeMode {
 
     /** After the TV boots (and after a TV update): wait for the system to settle and check MyOwnTV mode. */
     static void bootCheck(Context c) {
-        if (AMAZON) return;
         ensureRemoteService(c, 30_000);
         ModeJob.schedule(c, ModeJob.VERIFY, null, 45_000);
         Prefs.reload();
@@ -539,10 +532,6 @@ final class HomeMode {
 
     private static void applyFree(Context c) {
         JSONObject s = state(c);
-        if (AMAZON) {
-            done(c, Ui.tr("On Fire TV the Home button belongs to Amazon's home screen. MyOwnTV stays an app here: open it from your apps."));
-            return;
-        }
         if (BRICKS) {
             done(c, bricksText());
             return;
@@ -925,7 +914,7 @@ final class HomeMode {
                 s.remove("busy");
                 save(app, s);
             } catch (JSONException ignored) {}
-            if (!FREE.equals(s.optString("mode")) || AMAZON) return;
+            if (!FREE.equals(s.optString("mode"))) return;
             if (BRICKS) {
                 // Switched by a version that still allowed it here: the TV's own home screen back before the next restart.
                 AppLog.w("MyOwnTV mode where the switch kept a TV from starting: back to Original");

@@ -320,8 +320,8 @@ final class HomeApps {
     /** Only native stores with a launcher entry; no browser fallback or package installation. */
     static String storePackage(Context c) {
         PackageManager pm = c.getPackageManager();
-        String first = HomeMode.AMAZON ? "com.amazon.venezia" : "com.android.vending";
-        String second = HomeMode.AMAZON ? "com.android.vending" : "com.amazon.venezia";
+        String first = "com.android.vending";
+        String second = "com.amazon.venezia";
         if (launchIntent(pm, first) != null) return first;
         return launchIntent(pm, second) != null ? second : null;
     }
@@ -688,7 +688,6 @@ final class HomeApps {
                 intent = liveTv(a);
                 break;
             case INPUT:
-                if (HomeMode.AMAZON && fireInput(a, it)) return true;
                 intent = inputIntent(a, it);
                 break;
             case SETTINGS:
@@ -727,32 +726,8 @@ final class HomeApps {
         }
     }
 
-    /**
-     * Fire TV (a TV with Fire OS built in): an HDMI input through Amazon's own input switch, as its home screen does.
-     * The standard request goes to Vewd's HbbTV player or to Amazon's Live TV, which both play the antenna's last
-     * channel (an app's, like RaiPlay's) instead, and Amazon's input player wants a permission only Amazon's apps have.
-     * The switch usually takes the port's hardware number: HW2 is HDMI 1. On the TCL AFTDEC012E, HDMI 4 is
-     * HW5 but Amazon's own menu sends inputType 10; 5 waits for input data and times out.
-     */
+    /** An input id ending in /HW<port>: the hardware number of its HDMI port. */
     private static final Pattern HW = Pattern.compile("/HW(\\d+)$");
-
-    private static boolean fireInput(Context c, Item it) {
-        Matcher m = HW.matcher(it.inputId);
-        if (!m.find()) return false;
-        Intent sw = new Intent().setComponent(new ComponentName("com.amazon.tv.inputpreference.service",
-                "com.amazon.tv.inputpreference.service.KaminoInputSwitchService"));
-        if (c.getPackageManager().resolveService(sw, 0) == null) return false;
-        try {
-            int hardware = Integer.parseInt(m.group(1));
-            int inputType = "AFTDEC012E".equalsIgnoreCase(Build.MODEL) && hardware == 5 ? 10 : hardware;
-            if (c.startService(sw.putExtra("inputType", inputType)) == null) return false;
-            AppLog.w("Fire TV input: HW" + hardware + " (type " + inputType + ") for " + it.label);
-            return true;
-        } catch (RuntimeException e) {
-            AppLog.w("Amazon's input switch: " + e.getMessage());
-            return false;
-        }
-    }
 
     /**
      * Live TV: tune the antenna input directly. MediaTek TV Center otherwise restores the last source used, which can
@@ -760,14 +735,6 @@ final class HomeApps {
      */
     static Intent liveTv(Context c) {
         PackageManager pm = c.getPackageManager();
-        // Fire TV: the antenna (digital terrestrial) entry of Amazon's Live TV, which plays the antenna's channels or
-        // opens the channel scan when there are none yet. The channels request would also offer Vewd's HbbTV player,
-        // and Live TV on its own plays the last channel, which can be an app's (RaiPlay's).
-        if (HomeMode.AMAZON) {
-            ComponentName dtt = new ComponentName("com.amazon.tv.livetv", "com.amazon.tv.livetv.DttIconWrapperActivity");
-            // exists(), not resolveActivity: that hands an explicit component back without looking (the sticks have none)
-            if (exists(c, dtt)) return new Intent().setComponent(dtt);
-        }
         // Sony: its TV app (the launcher tile's) knows the last input and channel. A tuner's channel list can be an empty
         // one: a BRAVIA lists DvbOpv1 (the CI+ operator input) beside the satellite and antenna ones (#340).
         if (RemoteKeys.SONY) {

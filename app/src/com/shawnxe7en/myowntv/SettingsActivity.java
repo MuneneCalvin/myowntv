@@ -55,7 +55,6 @@ public class SettingsActivity extends Activity {
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (openFireHome(getIntent())) return;
         Watchdog.install(this);
         Updates.schedule(this);   // the week's update check, once (a fresh install has had no boot or update yet)
         Ui.init(this);
@@ -63,20 +62,6 @@ public class SettingsActivity extends Activity {
         SleepTimer.check(this);
         view = new SettingsView(this);
         setContentView(view);
-    }
-
-    /**
-     * Fire TV: Amazon keeps the Home button, so the app's icon opens the home screen (FireHomeActivity) directly;
-     * the gear on the home screen opens these settings (no launcher category).
-     */
-    private boolean openFireHome(Intent intent) {
-        if (!HomeMode.AMAZON || intent == null || !(intent.hasCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
-                || intent.hasCategory(Intent.CATEGORY_LAUNCHER)) || intent.getBooleanExtra("screensaver", false)) {
-            return false;
-        }
-        startActivity(new Intent(this, FireHomeActivity.class));
-        finish();
-        return true;
     }
 
     @Override protected void onResume() {
@@ -93,7 +78,6 @@ public class SettingsActivity extends Activity {
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        if (openFireHome(intent)) return;
         setIntent(intent);
     }
 

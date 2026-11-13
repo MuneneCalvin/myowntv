@@ -63,7 +63,7 @@ SAVER=true; [ "$(prop screensaver true)" = "false" ] && SAVER=false
 STREMIO=false; [ "$(prop open_in_stremio false)" = "true" ] && STREMIO=true
 NUVIO=false; [ "$(prop open_in_nuvio false)" = "true" ] && NUVIO=true
 
-# Servers on your own network (Immich, and the next feature that needs one) often answer in plain HTTP. One rule for
+# Servers on your own network often answer in plain HTTP. One rule for
 # all of them: a server given as http:// must be on the local network, and only its host may skip HTTPS
 # (network_security_config.xml, below). A new one is read with `lan_server <key>`, then `prop <key>`.
 LAN_HTTP_HOSTS=""
@@ -95,19 +95,6 @@ lan_server() {   # lan_server <key>: checks it; the host of an http:// one joins
     *) echo "config.properties: $1 must start with http:// or https:// (got \"$v\")" >&2; exit 1 ;;
   esac
 }
-lan_server immich_server
-lan_server home_assistant_url
-# Keys that would let another app on the TV into the user's own servers stay out of the APK: tools/send_key.py sends
-# them to the TV (Secrets).
-for key in immich_api_key home_assistant_token; do
-  if [ -n "$(prop "$key" '')" ]; then
-    echo "config.properties: $key isn't built into the app (any app on the TV could read it there)." >&2
-    echo "Send it to the TV instead (python3 tools/send_key.py <TV IP> $key), then remove it here." >&2
-  fi
-done
-# Home Assistant: with an address and entities, Home Settings gets its Home Assistant row; without, no row at all.
-HA=false; [ -n "$(prop home_assistant_url '')" ] && [ -n "$(prop home_assistant_entities '')" ] && HA=true
-
 rm -rf out && mkdir -p out/gen/com/shawnxe7en/myowntv out/classes
 cat > out/gen/com/shawnxe7en/myowntv/Config.java <<EOF
 package com.shawnxe7en.myowntv;
@@ -130,10 +117,6 @@ final class Config {
     static final String TEMPERATURE = "$(prop temperature auto)";
     static final String HIDE_SERVICES = "$(prop hide_services '')";
     static final String THEME = "$(prop theme auto)";
-    static final String IMMICH_SERVER = "$(prop immich_server '')";
-    static final String HA_URL = "$(prop home_assistant_url '')";
-    static final String HA_ENTITIES = "$(prop home_assistant_entities '')";
-    static final boolean HOME_ASSISTANT = $HA;   // home_assistant_url and _entities set: Home Settings shows its row
     static final boolean DISABLE_ASSISTANT = $ASSIST;
     static final boolean SHOW_CRYPTO = $CRYPTO;
     static final boolean HIDE_ANIMATION = $ANIMATION;

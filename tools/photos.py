@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Sends your photos to the TV for TV Home's screensaver and home screen (My Photos).
+"""Sends your photos to the TV for MyOwnTV's screensaver and home screen (My Photos).
 
     python3 tools/photos.py 192.168.1.50 beach.jpg hills.jpg Holidays/
     python3 tools/photos.py beach.jpg              # the TV adb is already connected to
 
 The photos go, in the order given (a folder's in name order), to the app's own folder on the TV
-(Android/data/dev.tvhome.fork/files/photos: adb can write there, and the app needs no permission); where the TV keeps adb
+(Android/data/com.shawnxe7en.myowntv/files/photos: adb can write there, and the app needs no permission); where the TV keeps adb
 out of it (Android 11, Fire OS 8), they go through the app itself (pushed to /data/local/tmp, then `content write` to
-its PhotoInbox, which only adb may use). The next time the home screen, the screensaver or TV Home's settings
+its PhotoInbox, which only adb may use). The next time the home screen, the screensaver or MyOwnTV's settings
 open, the app imports each one (upright, whole, at the screensaver's size, without its GPS and other tags)
 and deletes what was sent. Up to 100 photos in all; remove them on the TV: Home Settings > My Photos > OK. JPEG, PNG
 and WebP; HEIC on Android 9 and newer.
@@ -18,8 +18,8 @@ import subprocess
 import sys
 import urllib.parse
 
-INBOX = '/sdcard/Android/data/dev.tvhome.fork/files/photos'
-STAGED = '/data/local/tmp/tvhome-photo'   # each photo on its way to PhotoInbox (adb's shell can always write here)
+INBOX = '/sdcard/Android/data/com.shawnxe7en.myowntv/files/photos'
+STAGED = '/data/local/tmp/myowntv-photo'   # each photo on its way to PhotoInbox (adb's shell can always write here)
 KINDS = ('.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif')
 SERIAL = []   # -s <ip>:5555 once connected, so a phone or another TV on adb doesn't get in the way
 
@@ -63,21 +63,21 @@ def main():
     if not found:
         print('No photos to send.')
         return 1
-    listed = adb('shell', 'pm', 'list', 'packages', 'dev.tvhome.fork')
+    listed = adb('shell', 'pm', 'list', 'packages', 'com.shawnxe7en.myowntv')
     if listed.returncode != 0:
         print('No TV connected: give its IP address first (adb devices lists the connected ones).')
         return 1
-    if 'package:dev.tvhome.fork' not in listed.stdout.split():
-        print('TV Home is not installed on this TV.')
+    if 'package:com.shawnxe7en.myowntv' not in listed.stdout.split():
+        print('MyOwnTV is not installed on this TV.')
         return 1
     # Android 11 (Fire OS 8 too) keeps adb out of other apps' Android/data folders: then through the app itself.
     direct = adb('shell', 'mkdir', '-p', INBOX).returncode == 0
     if not direct:
-        # Check once that its TV Home has the way in.
-        probe = adb('shell', 'content', 'query', '--uri', 'content://dev.tvhome.fork.photos/')
+        # Check once that its MyOwnTV has the way in.
+        probe = adb('shell', 'content', 'query', '--uri', 'content://com.shawnxe7en.myowntv.photos/')
         if 'Could not find provider' in probe.stdout + probe.stderr:
-            print('This TV keeps adb out of the app\'s folder, and the TV Home on it is too old for the other way '
-                  'in: install the new TVHome.apk (see Install), then send them again.')
+            print('This TV keeps adb out of the app\'s folder, and the MyOwnTV on it is too old for the other way '
+                  'in: install the new MyOwnTV.apk (see Install), then send them again.')
             return 1
     for i, path in enumerate(found):
         # Numbered so the app imports them in this order.
@@ -88,7 +88,7 @@ def main():
             # Encoded (a # or ? would cut the name; quote leaves no ' for the shell), and with its size, so the app
             # drops a send cut short. Read from a file on the TV: fed by `adb exec-in`, `content write` read a terminal
             # that adb hangs up as soon as this side is done, and the photo could be lost while this said Sent (#380).
-            uri = f'content://dev.tvhome.fork.photos/{urllib.parse.quote(name)}?size={os.path.getsize(path)}'
+            uri = f'content://com.shawnxe7en.myowntv.photos/{urllib.parse.quote(name)}?size={os.path.getsize(path)}'
             r = adb('push', path, STAGED)
             if r.returncode == 0:
                 r = adb('shell', f"content write --uri '{uri}' < {STAGED}; rm -f {STAGED}")
@@ -98,7 +98,7 @@ def main():
             print(f'Could not send {path}: {(r.stdout + r.stderr).strip()}')
             return 1
         print(f'Sent {path}')
-    print(f'{len(found)} photo(s) on the TV. Open the home screen or TV Home\'s settings to import them.')
+    print(f'{len(found)} photo(s) on the TV. Open the home screen or MyOwnTV\'s settings to import them.')
     return 0
 
 

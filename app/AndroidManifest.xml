@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="dev.tvhome.fork"
+    package="com.shawnxe7en.myowntv"
     android:versionCode="6"
     android:versionName="1.5">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- After the TV boots (and after a TV update), checks that TV Home mode is still as you left it. -->
+    <!-- After the TV boots (and after a TV update), checks that MyOwnTV mode is still as you left it. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- The sleep timer's minutes left over any app (SleepOverlay), when picked; allowed through ADB, as Android TV
          has no screen for it. -->
@@ -103,24 +103,24 @@
 
     <application
         android:name=".App"
-        android:label="TV Home"
+        android:label="MyOwnTV"
         android:icon="@drawable/icon"
         android:banner="@drawable/banner"
         android:allowBackup="false"
         android:networkSecurityConfig="@xml/network_security_config">
 
-        <!-- The app's icon opens the settings (switch between TV Home and the original home screen). -->
+        <!-- The app's icon opens the settings (switch between MyOwnTV and the original home screen). -->
         <activity
             android:name=".SettingsActivity"
             android:process=":home"
             android:exported="true"
-            android:label="TV Home"
+            android:label="MyOwnTV"
             android:launchMode="singleTask"
-            android:taskAffinity="dev.tvhome.fork.settings"
+            android:taskAffinity="com.shawnxe7en.myowntv.settings"
             android:excludeFromRecents="true"
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
-            android:theme="@style/TVHome.Home">
+            android:theme="@style/MyOwnTV.Home">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
@@ -133,19 +133,19 @@
             android:process=":home"
             android:exported="false"
             android:launchMode="singleTask"
-            android:taskAffinity="dev.tvhome.fork.quick"
+            android:taskAffinity="com.shawnxe7en.myowntv.quick"
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:screenOrientation="landscape"
-            android:theme="@style/TVHome.QuickSettings" />
+            android:theme="@style/MyOwnTV.QuickSettings" />
 
         <!-- The home screen. Its own process (:home): if it ever crashes, the safety net in the main process still
-             works. It only becomes the TV's home screen in TV Home mode (cmd package set-home-activity). -->
+             works. It only becomes the TV's home screen in MyOwnTV mode (cmd package set-home-activity). -->
         <activity
             android:name=".HomeActivity"
             android:process=":home"
             android:exported="true"
-            android:label="TV Home"
+            android:label="MyOwnTV"
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:stateNotNeeded="true"
@@ -154,7 +154,7 @@
             android:excludeFromRecents="true"
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
-            android:theme="@style/TVHome.Home">
+            android:theme="@style/MyOwnTV.Home">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -173,32 +173,32 @@
             android:name=".FireHomeActivity"
             android:process=":home"
             android:exported="false"
-            android:label="TV Home"
+            android:label="MyOwnTV"
             android:launchMode="singleTask"
-            android:taskAffinity="dev.tvhome.fork.settings"
+            android:taskAffinity="com.shawnxe7en.myowntv.settings"
             android:excludeFromRecents="true"
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
-            android:theme="@style/TVHome.Home" />
+            android:theme="@style/MyOwnTV.Home" />
 
-        <!-- The quick settings panel the remote's Settings button opens in TV Home mode (RemoteKeys), over what's
+        <!-- The quick settings panel the remote's Settings button opens in MyOwnTV mode (RemoteKeys), over what's
              playing: a window on the left of the screen, not the whole screen. -->
         <activity
             android:name=".QuickPanelActivity"
             android:process=":home"
             android:exported="false"
             android:launchMode="singleTask"
-            android:taskAffinity="dev.tvhome.fork.panel"
+            android:taskAffinity="com.shawnxe7en.myowntv.panel"
             android:excludeFromRecents="true"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
-            android:theme="@style/TVHome.Panel" />
+            android:theme="@style/MyOwnTV.Panel" />
 
         <service
             android:name=".Screensaver"
             android:process=":home"
             android:enabled="@bool/dream_in_home"
             android:exported="true"
-            android:label="TV Home"
+            android:label="MyOwnTV"
             android:permission="android.permission.BIND_DREAM_SERVICE">
             <intent-filter>
                 <action android:name="android.service.dreams.DreamService" />
@@ -211,7 +211,7 @@
             android:name=".ScreensaverAlone"
             android:enabled="@bool/dream_alone"
             android:exported="true"
-            android:label="TV Home"
+            android:label="MyOwnTV"
             android:permission="android.permission.BIND_DREAM_SERVICE">
             <intent-filter>
                 <action android:name="android.service.dreams.DreamService" />
@@ -231,7 +231,7 @@
             android:name=".RemoteKeyService"
             android:process=":keys"
             android:exported="true"
-            android:label="TV Home"
+            android:label="MyOwnTV"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -245,14 +245,14 @@
              only adb's shell may write (PhotoInbox checks). -->
         <provider
             android:name=".PhotoInbox"
-            android:authorities="dev.tvhome.fork.photos"
+            android:authorities="com.shawnxe7en.myowntv.photos"
             android:exported="true" />
 
         <!-- tools/send_key.py writes keys that stay out of the APK here (the Immich key, Home Assistant's token); only
              adb's shell may write (Secrets checks). -->
         <provider
             android:name=".Secrets"
-            android:authorities="dev.tvhome.fork.secrets"
+            android:authorities="com.shawnxe7en.myowntv.secrets"
             android:exported="true" />
 
         <!-- The sleep timer's minutes left over any app, while the timer runs. A process of its own: a foreground
@@ -267,7 +267,7 @@
         <service
             android:name=".NowPlaying"
             android:exported="true"
-            android:label="TV Home"
+            android:label="MyOwnTV"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

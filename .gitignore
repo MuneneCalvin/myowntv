@@ -10,10 +10,11 @@ webos-icons.local/
 out/
 *.apk
 *.ipk
-!docs/webos/TVHome-webos-*.ipk
+!docs/webos/MyOwnTV-webos-*.ipk
 *.wgt
 __pycache__/
 
 # macOS
 .DS_Store
 tools/.i18n-cache.json
+scratch/

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sends a secret key to TV Home on the TV, so it never goes into the APK (any app on the TV can read an installed
+"""Sends a secret key to MyOwnTV on the TV, so it never goes into the APK (any app on the TV can read an installed
 APK) or into config.properties.
 
     python3 tools/send_key.py 192.168.1.50 immich_api_key     # asks for the key (not shown)
@@ -27,7 +27,7 @@ import time
 import urllib.error
 import urllib.request
 
-URI = 'content://dev.tvhome.fork.secrets/'
+URI = 'content://com.shawnxe7en.myowntv.secrets/'
 NAMES = ('immich_api_key', 'home_assistant_token')
 SERIAL = []   # -s <ip>:5555 once connected, so a phone or another TV on adb doesn't get in the way
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -135,7 +135,7 @@ def check_home_assistant(token):
     opener = urllib.request.build_opener(NoRedirect)
 
     def get(path):
-        req = urllib.request.Request(server + path, headers={'Authorization': 'Bearer ' + token, 'User-Agent': 'TVHome'})
+        req = urllib.request.Request(server + path, headers={'Authorization': 'Bearer ' + token, 'User-Agent': 'MyOwnTV'})
         with opener.open(req, timeout=8) as r:
             return json.load(r)
 
@@ -199,12 +199,12 @@ def main():
         print('Which key? One of: ' + ', '.join(NAMES))
         return 2
     name = args[0]
-    listed = adb('shell', 'pm', 'list', 'packages', 'dev.tvhome.fork', text=True)
+    listed = adb('shell', 'pm', 'list', 'packages', 'com.shawnxe7en.myowntv', text=True)
     if listed.returncode != 0:
         print('No TV connected: give its IP address first (adb devices lists the connected ones).')
         return 1
-    if 'package:dev.tvhome.fork' not in listed.stdout.split():
-        print('TV Home is not installed on this TV.')
+    if 'package:com.shawnxe7en.myowntv' not in listed.stdout.split():
+        print('MyOwnTV is not installed on this TV.')
         return 1
     sdk = adb('shell', 'getprop', 'ro.build.version.sdk', text=True).stdout.strip()
     if sdk.isdigit() and int(sdk) < 28:
@@ -212,7 +212,7 @@ def main():
         return 1
     before = received(name)
     if before is None:
-        print('The TV Home on this TV is too old to take keys: install the new TVHome.apk (see Install), then '
+        print('The MyOwnTV on this TV is too old to take keys: install the new MyOwnTV.apk (see Install), then '
               'send it again.')
         return 1
 
@@ -243,7 +243,7 @@ def main():
     if not after or after == before:
         print(f'The TV didn\'t take {name}: it keeps one line of 8 or more printable characters. Nothing changed.')
         return 1
-    print(f'Sent {name}. TV Home uses it from the next time the home screen or its settings open.')
+    print(f'Sent {name}. MyOwnTV uses it from the next time the home screen or its settings open.')
     return 0
 
 

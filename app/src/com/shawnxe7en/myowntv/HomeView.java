@@ -130,6 +130,13 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private final Activity activity;
     private final Scene scene = new Scene();
+    // Couch TV's scenes behind a glass clock (Prefs.scenes(), clock mode only); created on first use
+    private SceneLayer sceneLayer;
+    private GlassClock glassClock;
+    private int sceneW, sceneH;
+    private boolean sceneShown;   // a scene is on the sky layer: the top shows the centered date and weather line only
+    private LinearGradient sceneShade;
+    private Paint sceneDate, sceneWeather;
     private final HomeData data;
     private final Recs recs;
     private final NowPlaying.Watch playing;
@@ -692,6 +699,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             clockMinute = -1;
             textPrefs = -1;
         }
+        sceneShown = false;   // Settings may have turned Scenes on or off
+        sky.invalidate();
+        heroDirty = true;
         long now = SystemClock.uptimeMillis();
         // Some remotes (Xiaomi's) send one Home press as a burst of 5 to 8, and each one pauses and resumes the home
         // screen: those after the first change nothing, so the lists are read only once.
@@ -754,10 +764,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         recs.removeListener(this);
         if (tvInputs != null) tvInputs.unregisterCallback(inputCallback);
         stopStatus();
+        if (sceneLayer != null) sceneLayer.trim();
+        if (glassClock != null) glassClock.reset();
     }
 
     void destroy() {
         pause();
+        if (sceneLayer != null) sceneLayer.release();
+        if (glassClock != null) glassClock.release();
         try {
             if (launcherApps != null) launcherApps.unregisterCallback(packages);
         } catch (RuntimeException ignored) {
@@ -1047,10 +1061,13 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (drawerItemsMoving || drawerDirty || bgFading) drawerLayer.invalidate();
         if (gridMoving || gridDirty) sheetLayer.invalidate();
         if (drawerMoving || bgFading) sky.invalidate();
+        boolean sceneOn = scenesOn();
+        if (sceneOn && sceneLayer.needsFrame(up)) sky.invalidate();
         if (bgFading || (drawerWasMoving && !drawerMoving)) platter.invalidate();
         drawerWasMoving = drawerMoving;
         tilesDirty = statusDirty = heroDirty = drawerDirty = gridDirty = motionDirty = false;
         if (updateClock()) {
+            if (sceneOn) sky.invalidate();   // the glass digits change with the minute
             layoutStatus();
             status.invalidate();
             if (hero != null && hero.clock) {
@@ -1063,6 +1080,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         // Busy: something is moving, or the sheet or the drawer is open.
         boolean busy = tilesMoving || statusMoving || heroMoving || drawerItemsMoving || gridMoving || drawerMoving
                 || menuMoving || sheetMoving || toastFading || heroFading || bgFading || nightMoving || tintMoving || sheetOpen
+                || (sceneOn && sceneLayer.fading(up))
                 || sheet.value > 0.001f || recentMoving || drawerOpen || drawer.value > 0.001f || toast != null || !toasts.isEmpty();
         idle = !busy;
         if (busy) Choreographer.getInstance().postFrameCallback(this);
@@ -1499,7 +1517,40 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     // MARK: - Background
 
     private void drawSky(Canvas c) {
-        drawLightSky(c);
+        boolean shown = scenesOn() && drawScenes(c);
+        if (shown != sceneShown) {   // the top of the screen changes with it (centered header, or the flat clock)
+            sceneShown = shown;
+            heroDirty = true;
+        }
+        if (!shown) drawLightSky(c);
+    }
+
+    /** Scenes replace the home background where the clock is the top of the screen (not with picks or Continue Watching). */
+    private boolean scenesOn() {
+        if (!Prefs.scenes() || !clockMode()) return false;
+        if (glassClock == null) glassClock = new GlassClock(getContext());
+        if (!glassClock.available()) return false;
+        if (sceneLayer == null) sceneLayer = new SceneLayer(getContext());
+        return true;
+    }
+
+    /** Scene photo, the glass clock, the scenery over it, and a soft shade under the shelf. False: no scene is usable yet. */
+    private boolean drawScenes(Canvas c) {
+        if (w != sceneW || h != sceneH) {
+            sceneLayer.attach(w, h);
+            sceneW = w;
+            sceneH = h;
+            glassClock.reset();
+        }
+        if (!sceneLayer.draw(c, SystemClock.uptimeMillis())) return false;
+        glassClock.update(clockText, clockPaint, w, h, k, () -> sky.invalidate());
+        glassClock.draw(c, sceneLayer.glassCopy(), w, k);
+        sceneLayer.drawForeground(c);
+        if (sceneShade == null) sceneShade = new LinearGradient(0, h * 0.55f, 0, h, 0x00000000, 0x66000000, Shader.TileMode.CLAMP);
+        fill.setShader(sceneShade);
+        c.drawRect(0, h * 0.55f, w, h, fill);
+        fill.setShader(null);
+        return true;
     }
 
     /** Blends a color on top (the drawer's veil) as part of drawing the image, without another layer. */
@@ -4740,12 +4791,34 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         return Recs.hasKey(getContext());
     }
 
-    private void drawClock(Canvas c) {
-        float x = MARGIN * k;
-        c.drawText(dateText, x - Ui.leftBearing(lDate, dateText), L_DATE_BASE * k, lDate);
-        c.drawText(clockText, x - Ui.leftBearing(lClock, clockText), L_CLOCK_BASE * k, lClock);
+    /** With a scene: the date and the weather on one line, centered above the glass clock (as in Couch TV). */
+    private void drawSceneHeader(Canvas c) {
+        if (sceneDate == null) {
+            sceneDate = new Paint(lDate);
+            sceneDate.setColor(0xF2FFFFFF);
+            sceneWeather = new Paint(lWeather);
+            sceneWeather.setColor(0xD9FFFFFF);
+        }
+        float base = (GlassClock.TOP - 34) * k, cx = w / 2f;
         HomeData.Weather wx = data.weather;
-        if (!Prefs.weather() || Double.isNaN(wx.temp)) return;
+        boolean wxOn = Prefs.weather() && !Double.isNaN(wx.temp);
+        float dateW = sceneDate.measureText(dateText), size = 32 * k, sw = 0, wxW = 0;
+        String symbol = "";
+        if (wxOn) {
+            updateWeatherLine(wx);
+            symbol = Symbols.weather(wx.code, wx.isDay);
+            sw = Symbols.width(getContext(), symbol, size);
+            wxW = sw + 12 * k + sceneWeather.measureText(weatherLine);
+        }
+        float x = cx - (dateW + (wxOn ? 36 * k + wxW : 0)) / 2;
+        c.drawText(dateText, x, base, sceneDate);
+        if (!wxOn) return;
+        x += dateW + 36 * k;
+        Symbols.draw(getContext(), c, symbol, x + sw / 2, base - Ui.halfCap(sceneWeather), size, 0xD9FFFFFF);
+        c.drawText(weatherLine, x + sw + 12 * k, base, sceneWeather);
+    }
+
+    private void updateWeatherLine(HomeData.Weather wx) {
         if (data.weatherAt != weatherLineAt || Prefs.version != weatherLinePrefs || !Ui.language.equals(weatherLineLanguage)) {
             weatherLineAt = data.weatherAt;
             weatherLinePrefs = Prefs.version;
@@ -4753,6 +4826,19 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             weatherLine = HomeData.degrees(wx.temp) + "  " + HomeData.condition(wx.code, wx.isDay) + "   "
                     + HomeData.highLow(wx, "  ");
         }
+    }
+
+    private void drawClock(Canvas c) {
+        if (sceneShown) {
+            drawSceneHeader(c);
+            return;
+        }
+        float x = MARGIN * k;
+        c.drawText(dateText, x - Ui.leftBearing(lDate, dateText), L_DATE_BASE * k, lDate);
+        c.drawText(clockText, x - Ui.leftBearing(lClock, clockText), L_CLOCK_BASE * k, lClock);
+        HomeData.Weather wx = data.weather;
+        if (!Prefs.weather() || Double.isNaN(wx.temp)) return;
+        updateWeatherLine(wx);
         float size = 40 * k, base = L_WEATHER_BASE * k;
         String symbol = Symbols.weather(wx.code, wx.isDay);
         float sw = Symbols.width(getContext(), symbol, size);

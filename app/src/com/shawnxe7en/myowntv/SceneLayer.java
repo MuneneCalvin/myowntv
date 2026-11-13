@@ -48,6 +48,7 @@ final class SceneLayer {
     private final Rect dst = new Rect();
     private final boolean[] failed = new boolean[NAMES.length];
     private Entry cur, next;
+    private boolean fresh;       // a scene finished loading since the last draw
     private int loading = -1, generation;
     private long startedAt = -1;
     private int width = 1920, height = 1080, sample = 1;
@@ -68,6 +69,7 @@ final class SceneLayer {
     boolean draw(Canvas c, long nowMs) {
         if (startedAt < 0) startedAt = nowMs;
         long elapsed = nowMs - startedAt;
+        fresh = false;
         int idx = cycle.indexAt(elapsed);
         if (cur == null || cur.index != idx) {
             if (next != null && next.index == idx) {
@@ -88,6 +90,18 @@ final class SceneLayer {
             c.drawBitmap(next.photo, null, dst, paint);
         }
         return true;
+    }
+
+    /** True while the picture changes: a crossfade, a scene due, or one just loaded. For callers that redraw on demand. */
+    boolean needsFrame(long nowMs) {
+        if (startedAt < 0 || fresh || cur == null || cur.photo == null) return true;
+        long elapsed = nowMs - startedAt;
+        return cur.index != cycle.indexAt(elapsed) || cycle.fade(elapsed) > 0;
+    }
+
+    /** Mid-crossfade: callers redraw every frame. */
+    boolean fading(long nowMs) {
+        return startedAt >= 0 && cycle.fade(nowMs - startedAt) > 0;
     }
 
     /** The scenery cut-out, to be drawn after the clock (nothing for a scene without one). */
@@ -132,6 +146,7 @@ final class SceneLayer {
                     return;
                 }
                 loading = -1;
+                fresh = true;
                 if (e == null) {
                     failed[index] = true;
                 } else if (cur == null) {

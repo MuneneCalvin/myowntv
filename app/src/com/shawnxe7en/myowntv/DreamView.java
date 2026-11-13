@@ -86,7 +86,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     }
 
     /** The glass clock's digits, rendered once a minute in the background. */
-    private static final class Glass {
+    static final class Glass {
         final String text;
         final Bitmap slope, cover, shadow;
         final int x, y;
@@ -742,7 +742,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         });
     }
 
-    private static BitmapShader nearest(Bitmap b) {
+    static BitmapShader nearest(Bitmap b) {
         BitmapShader s = new BitmapShader(b, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
         Frost.filter(s, BitmapShader.FILTER_MODE_NEAREST);
         return s;
@@ -752,7 +752,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
      * The sharp rendering of the digits, the surface height (the blurred rendering: 0.5 at the edge, 1 in the middle of
      * the strokes), its slope (for the lens and the highlight) and the shadow.
      */
-    private static Glass makeGlass(String text, Paint paint, float right, float top, float k) {
+    static Glass makeGlass(String text, Paint paint, float right, float top, float k) {
         Rect ink = new Rect();
         paint.getTextBounds(text, 0, text.length(), ink);
         int pad = Math.round(40 * k);

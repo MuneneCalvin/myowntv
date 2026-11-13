@@ -78,6 +78,8 @@ final class HomeApps {
         Bitmap logoDark;    // version for a light background (YouTube's white icon), if any
         float logoInk;      // fraction of the logo with ink (thin logos are drawn larger, with the same "weight")
         float logoScale = 1; // size tweak by eye (compact logos need more)
+        Bitmap icon, glyph; // the launcher icon (full colour) and its clear glyph (white): the dock's glass tile
+        BitmapShader iconShader;
         int brand;          // the app's brand colour (ARGB), 0 if unknown: the focused glass tile fills with it
         boolean connected = true;
         HomeAssistant.Control control;   // HOME_ASSISTANT: the entity it shows and calls
@@ -214,6 +216,11 @@ final class HomeApps {
                 it.logoDark = ownLogoCached(c, d[0] + "-dark");
                 it.logoScale = Float.parseFloat(d[5]);
                 it.brand = 0xFF000000 | Integer.parseInt(d[3], 16);
+            }
+            it.icon = IconGlyphs.icon(c, pkg);
+            if (it.icon != null) {
+                it.iconShader = new BitmapShader(it.icon, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+                it.glyph = IconGlyphs.glyph(c, pkg, it.icon, extract);
             }
             items.add(it);
         }

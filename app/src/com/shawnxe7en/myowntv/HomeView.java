@@ -2029,13 +2029,15 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     /**
-     * Couch TV's glass app icon: at rest a dark glass square with the app's symbol in light glass (the logo, white);
-     * focused, it lifts, takes the app's own colour behind the symbol and gets a white ring.
+     * Couch TV's glass app icon: at rest a dark glass square with the app's clear glyph (its icon without the
+     * background, ClearIcon) in light glass; focused, it lifts, shows the app's own icon in full colour and gets a white
+     * ring. An app whose icon won't split keeps its logo, white, and a brand-colour fill when focused.
      */
     private void drawGlassTile(Canvas c, HomeApps.Item it, float cx, float cy, float bw, float bh, float r0, float s, float fc) {
         float lift = -10 * k * fc;
         cy += lift;
         cell.offset(0, lift);
+        boolean clear = it.glyph != null && it.icon != null;
         c.save();
         c.translate(cx, cy);
         c.scale(s, s);
@@ -2049,8 +2051,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         fill.setShader(null);
         fill.setColor(0x8C24242C);   // rgba(36, 36, 44, .55): Couch TV's glass tile
         c.drawRoundRect(tmp, r0, r0, fill);
-        if (it.brand != 0 && fc > 0.01f) {
-            if (glassBrand == null || glassBrandH != bh) {
+        if (!clear && it.brand != 0 && fc > 0.01f) {
+            if (glassBrandH != bh) {
                 glassBrand.clear();
                 glassBrandH = bh;
             }
@@ -2072,16 +2074,26 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         fill.setShader(glassSheen);
         c.drawRoundRect(tmp, r0, r0, fill);
         fill.setShader(null);
+        c.restore();
+        if (clear) {
+            float g = cell.width() * 0.64f;   // the glyph, centred
+            tmp.set(cell.centerX() - g / 2, cell.centerY() - g / 2, cell.centerX() + g / 2, cell.centerY() + g / 2);
+            bitmapPaint.setAlpha(Math.round(255 * 0.92f * (1 - fc)));
+            c.drawBitmap(it.glyph, null, tmp, bitmapPaint);
+            bitmapPaint.setAlpha(255);
+            if (fc > 0.01f) coverImage(c, it.icon, it.iconShader, cell, r0 * s, fc);   // its own colours
+        } else {
+            bitmapPaint.setAlpha(Math.round(255 * (0.82f + 0.18f * fc)));
+            drawLogo(c, it, cell, s, 1);
+            bitmapPaint.setAlpha(255);
+        }
         // The rim of light: faint at rest, a white ring when focused (Couch TV: 0.25rem #fff)
         tileRim.setStrokeWidth((1.6f + 2.4f * fc) * k);
         tileRim.setColor(Ui.alpha(0xFFFFFFFF, 0.30f + 0.70f * fc));
         float inset = tileRim.getStrokeWidth() / 2;
+        tmp.set(cell);
         tmp.inset(inset, inset);
-        c.drawRoundRect(tmp, r0 - inset, r0 - inset, tileRim);
-        c.restore();
-        bitmapPaint.setAlpha(Math.round(255 * (0.82f + 0.18f * fc)));
-        drawLogo(c, it, cell, s, 1);
-        bitmapPaint.setAlpha(255);
+        c.drawRoundRect(tmp, r0 * s - inset, r0 * s - inset, tileRim);
     }
 
     /**

@@ -324,8 +324,8 @@ final class Prefs {
 
     /** What the cards under the title show: the recommendations (TMDB), what you were watching in your apps, or nothing. */
     static String topContent() {
-        String v = sp().getString("topContent", TOP_PICKS);
-        return v.equals(TOP_CONTINUE) || v.equals(TOP_NONE) ? v : TOP_PICKS;
+        String v = sp().getString("topContent", TOP_NONE);   // the clock and scenes are the home; Picks is one setting away
+        return v.equals(TOP_CONTINUE) || v.equals(TOP_PICKS) ? v : TOP_NONE;
     }
 
     static void setTopContent(String v) { put("topContent", v); }

@@ -364,8 +364,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tileFill = new Paint(Paint.ANTI_ALIAS_FLAG), glintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private LinearGradient glintShader, glassSheen;
-    private float glassSheenH;
+    private float glassSheenH, glassBrandH;
+    private final java.util.HashMap<Integer, LinearGradient> glassBrand = new java.util.HashMap<>();
     private final Paint tileRim = new Paint(Paint.ANTI_ALIAS_FLAG);
+    { tileRim.setStyle(Paint.Style.STROKE); }
     private final Matrix glintMatrix = new Matrix();
     private final RectF tmp = new RectF(), cell = new RectF(), screen = new RectF();
     private final TextPaint fitPaint = new TextPaint();
@@ -2026,29 +2028,60 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
     }
 
-    /** A frosted glass square (white veil, top sheen, light rim that brightens with focus) with the app's logo on it. */
+    /**
+     * Couch TV's glass app icon: at rest a dark glass square with the app's symbol in light glass (the logo, white);
+     * focused, it lifts, takes the app's own colour behind the symbol and gets a white ring.
+     */
     private void drawGlassTile(Canvas c, HomeApps.Item it, float cx, float cy, float bw, float bh, float r0, float s, float fc) {
+        float lift = -10 * k * fc;
+        cy += lift;
+        cell.offset(0, lift);
         c.save();
         c.translate(cx, cy);
         c.scale(s, s);
         tmp.set(-bw / 2, -bh / 2, bw / 2, bh / 2);
+        if (fc > 0.01f) {   // the lift's deeper shadow
+            tmp.offset(0, 14 * k * fc);
+            shadowDeep.setColor(Ui.alpha(0xFF000000, 0.42f * fc));
+            shadows.draw(c, tmp, r0, DEEP_BLUR * k, shadowDeep);
+            tmp.offset(0, -14 * k * fc);
+        }
         fill.setShader(null);
-        fill.setColor(Ui.alpha(0xFFFFFFFF, 0.10f + 0.16f * fc));
+        fill.setColor(0x8C24242C);   // rgba(36, 36, 44, .55): Couch TV's glass tile
         c.drawRoundRect(tmp, r0, r0, fill);
+        if (it.brand != 0 && fc > 0.01f) {
+            if (glassBrand == null || glassBrandH != bh) {
+                glassBrand.clear();
+                glassBrandH = bh;
+            }
+            LinearGradient g = glassBrand.get(it.brand);
+            if (g == null) {
+                g = new LinearGradient(0, -bh / 2, 0, bh / 2, blend(it.brand, 0xFFFFFFFF, 0.14f), blend(it.brand, 0xFF000000, 0.22f), Shader.TileMode.CLAMP);
+                glassBrand.put(it.brand, g);
+            }
+            fill.setShader(g);
+            fill.setAlpha(Math.round(255 * fc));
+            c.drawRoundRect(tmp, r0, r0, fill);
+            fill.setAlpha(255);
+            fill.setShader(null);
+        }
         if (glassSheen == null || glassSheenH != bh) {
-            glassSheen = new LinearGradient(0, -bh / 2, 0, bh / 2, 0x3DFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
+            glassSheen = new LinearGradient(0, -bh / 2, 0, bh / 2, 0x33FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
             glassSheenH = bh;
         }
         fill.setShader(glassSheen);
         c.drawRoundRect(tmp, r0, r0, fill);
         fill.setShader(null);
-        tileRim.setStrokeWidth(1.6f * k);
-        tileRim.setColor(Ui.alpha(0xFFFFFFFF, 0.20f + 0.65f * fc));
+        // The rim of light: faint at rest, a white ring when focused (Couch TV: 0.25rem #fff)
+        tileRim.setStrokeWidth((1.6f + 2.4f * fc) * k);
+        tileRim.setColor(Ui.alpha(0xFFFFFFFF, 0.30f + 0.70f * fc));
         float inset = tileRim.getStrokeWidth() / 2;
         tmp.inset(inset, inset);
         c.drawRoundRect(tmp, r0 - inset, r0 - inset, tileRim);
         c.restore();
-        drawLogo(c, it, cell, s, it.logoDark != null ? 2 : 0);
+        bitmapPaint.setAlpha(Math.round(255 * (0.82f + 0.18f * fc)));
+        drawLogo(c, it, cell, s, 1);
+        bitmapPaint.setAlpha(255);
     }
 
     /**

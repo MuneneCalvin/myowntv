@@ -78,6 +78,7 @@ final class HomeApps {
         Bitmap logoDark;    // version for a light background (YouTube's white icon), if any
         float logoInk;      // fraction of the logo with ink (thin logos are drawn larger, with the same "weight")
         float logoScale = 1; // size tweak by eye (compact logos need more)
+        int brand;          // the app's brand colour (ARGB), 0 if unknown: the focused glass tile fills with it
         boolean connected = true;
         HomeAssistant.Control control;   // HOME_ASSISTANT: the entity it shows and calls
 
@@ -212,6 +213,7 @@ final class HomeApps {
                 if (it.logo != null) it.logoInk = ink(it.logo);
                 it.logoDark = ownLogoCached(c, d[0] + "-dark");
                 it.logoScale = Float.parseFloat(d[5]);
+                it.brand = 0xFF000000 | Integer.parseInt(d[3], 16);
             }
             items.add(it);
         }

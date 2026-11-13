@@ -336,7 +336,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static final long BURST_MS = 1500;
     private int w, h;
     private float k = 1;
-    private String clockText = "", dateText = "", weatherLine = "";
+    private String clockText = "", dateText = "", weatherLine = "", weatherShort = "";
     /** "Off in 42 min" next to the round buttons while the sleep timer runs (Settings > Sleep Timer); "" otherwise. */
     private String sleepText = "";
     private long weatherLineAt = -1;
@@ -5140,14 +5140,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             updateWeatherLine(wx);
             symbol = Symbols.weather(wx.code, wx.isDay);
             sw = Symbols.width(getContext(), symbol, size);
-            wxW = sw + 12 * k + sceneWeather.measureText(weatherLine);
+            wxW = sw + 12 * k + sceneWeather.measureText(weatherShort);
         }
         float x = cx - (dateW + (wxOn ? 36 * k + wxW : 0)) / 2;
         c.drawText(dateText, x, base, sceneDate);
         if (!wxOn) return;
         x += dateW + 36 * k;
         Symbols.draw(getContext(), c, symbol, x + sw / 2, base - Ui.halfCap(sceneWeather), size, 0xD9FFFFFF);
-        c.drawText(weatherLine, x + sw + 12 * k, base, sceneWeather);
+        c.drawText(weatherShort, x + sw + 12 * k, base, sceneWeather);
     }
 
     private void updateWeatherLine(HomeData.Weather wx) {
@@ -5155,7 +5155,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             weatherLineAt = data.weatherAt;
             weatherLinePrefs = Prefs.version;
             weatherLineLanguage = Ui.language;
-            weatherLine = HomeData.degrees(wx.temp) + "  " + HomeData.condition(wx.code, wx.isDay) + "   "
+            weatherShort = HomeData.degrees(wx.temp) + "  " + HomeData.condition(wx.code, wx.isDay);   // over a scene: no high and low
+            weatherLine = weatherShort + "   "
                     + HomeData.highLow(wx, "  ");
         }
     }

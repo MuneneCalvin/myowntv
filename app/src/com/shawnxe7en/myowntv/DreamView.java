@@ -931,7 +931,8 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         }
         String symbol = showWx ? Symbols.weather(wx.code, wx.isDay) : "", now = showWx ? HomeData.degrees(wx.temp) : "";
         float sw = showWx ? Symbols.width(getContext(), symbol, 32 * k) : 0;
-        float width = showWx ? sw + 12 * k + weatherPaint.measureText(now) + 18 * k + weatherDim.measureText(range) : 0;
+        boolean hiLo = !sl;   // over a scene the line is just the temperature, no high and low
+        float width = showWx ? sw + 12 * k + weatherPaint.measureText(now) + (hiLo ? 18 * k + weatherDim.measureText(range) : 0) : 0;
         float dateW = datePaint.measureText(date), lineW = dateW + 36 * k + width;
         c.drawText(date, sl && showWx ? cx - lineW / 2 + dateW / 2 : cx, dateBase, datePaint);
         if (!(sl && glass != null)) c.drawText(clock, cx, clockBase, clockPaint);
@@ -944,7 +945,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             x += sw + 12 * k;
             c.drawText(now, x, base, weatherPaint);
             x += weatherPaint.measureText(now) + 18 * k;
-            c.drawText(range, x, base, weatherDim);
+            if (hiLo) c.drawText(range, x, base, weatherDim);
         }
 
         // Prices near the bottom edge: small white logo + value, all four on one line.

@@ -356,7 +356,6 @@ final class Prefs {
         return v.equals("drawer") || v.equals("home") ? v : "off";
     }
 
-    static void setRecents(String v) { put("recents", v); }
 
     /**
      * After the TV starts from off, never from standby (Home Settings > At power-on, #396 and #346): "tv" (the TV's

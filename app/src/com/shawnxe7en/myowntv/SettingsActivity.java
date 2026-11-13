@@ -970,16 +970,13 @@ public class SettingsActivity extends Activity {
         private static final String[] UNITS = {"auto", "C", "F"}, THEMES = {"auto", "light", "dark"},
                 CLOCKS = {"auto", "24", "12"};
         /** Home Settings: language, temperature, theme, clock, my photos, sounds, top of the screen, picks, Continue
-         *  Watching's apps, watch from the screensaver, Android apps, status icons, Recent Apps, at power-on, Live TV button, weather, city, forecast,
+         *  Watching's apps, watch from the screensaver, Android apps, status icons, at power-on, Live TV button, weather, city, forecast,
          *  now playing, scenes, quotes, one row per coin, then the TMDB and Watchmode keys and
          *  the keys (the last rows). */
         private static final int CLOCK_ROW = 3, PHOTOS_ROW = 4, TOP_ROW = 6, PICKS_ROW = 7, WATCH_ROW = 8,
-                SAVER_ROW = 9, ANDROID_APPS_ROW = 10, STATUS_ICONS_ROW = 11, RECENTS_ROW = 12, POWER_ON_ROW = 13,
-                LIVE_BUTTON_ROW = 14, WEATHER_ROW = 15, CITY_ROW = 16, FORECAST_ROW = 17, PLAYING_ROW = 18,
-                SCENES_ROW = 19, QUOTES_ROW = 20, COIN_ROWS = QUOTES_ROW + 1;
-        /** No "home" on Xiaomi TVs: their remote sends one Home press as a burst of presses (HomeView.BURST_MS). */
-        private static final String[] RECENTS = RemoteKeys.XIAOMI ? new String[] {"off", "drawer"}
-                : new String[] {"off", "drawer", "home"};
+                SAVER_ROW = 9, ANDROID_APPS_ROW = 10, STATUS_ICONS_ROW = 11, POWER_ON_ROW = 12,
+                LIVE_BUTTON_ROW = 13, WEATHER_ROW = 14, CITY_ROW = 15, FORECAST_ROW = 16, PLAYING_ROW = 17,
+                SCENES_ROW = 18, QUOTES_ROW = 19, COIN_ROWS = QUOTES_ROW + 1;
         /** Home Settings rows on screen at once (what fits above the hints at 1080p); a longer list scrolls. */
         private static final int SETTINGS_VISIBLE = 10;
 
@@ -1001,7 +998,6 @@ public class SettingsActivity extends Activity {
             l.add(Ui.tr("Watch from the screensaver"));
             l.add(Ui.tr("Android apps"));
             l.add(Ui.tr("Status icons"));   // before the weather widget: City and Forecast are the widget's
-            l.add(Ui.tr("Recent Apps"));
             l.add(Ui.tr("At power-on"));
             l.add(Ui.tr("Live TV button"));
             l.add(Ui.tr("Weather widget"));
@@ -1102,8 +1098,6 @@ public class SettingsActivity extends Activity {
                     : top.equals(Prefs.TOP_NONE) ? Ui.tr("Clock")
                     : Ui.tr("Picks");
             v[WATCH_ROW] = watchCount();
-            String rec = Prefs.recents();
-            v[RECENTS_ROW] = rec.equals("home") ? Ui.tr("recents|Drawer and Home twice") : rec.equals("drawer") ? Ui.tr("recents|In the drawer") : Ui.tr("Off");
             String power = Prefs.powerOn();
             v[POWER_ON_ROW] = power.equals("home") ? Ui.tr("power|Home screen") : power.equals("live") ? Ui.tr("Live TV") : Ui.tr("TV's choice");
             v[LIVE_BUTTON_ROW] = liveButtonValue();
@@ -1484,11 +1478,6 @@ public class SettingsActivity extends Activity {
                     break;
                 }
                 case WATCH_ROW: return;   // a list of its own (OK)
-                case RECENTS_ROW: {
-                    int at = java.util.Arrays.asList(RECENTS).indexOf(Prefs.recents());
-                    Prefs.setRecents(RECENTS[(at + dir + RECENTS.length) % RECENTS.length]);
-                    break;
-                }
                 case POWER_ON_ROW: {   // read at the next full start (HomeMode.bootCheck, HomeActivity)
                     int at = java.util.Arrays.asList(Prefs.POWER_ON).indexOf(Prefs.powerOn());
                     Prefs.setPowerOn(Prefs.POWER_ON[(at + dir + Prefs.POWER_ON.length) % Prefs.POWER_ON.length]);

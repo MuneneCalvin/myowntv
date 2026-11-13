@@ -137,10 +137,7 @@ public class HomeActivity extends Activity {
             return;
         }
         long now = SystemClock.uptimeMillis();
-        boolean twice = Prefs.recents().equals("home") && lastHome != 0 && now - lastHome < TWICE_MS;
-        lastHome = twice ? 0 : now;
-        if (twice) home.showRecents();
-        else home.reset(true);
+        home.reset(true);
     }
 
     /** When Home was last pressed, and how soon the second press counts (Settings > Home Settings). */

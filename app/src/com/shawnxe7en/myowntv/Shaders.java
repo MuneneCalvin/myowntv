@@ -189,7 +189,7 @@ final class Shaders {
         // The white veil: Tokens.veil() as a shader (t = 0 at the top edge, 1 at the bottom)
         "  float vt = clamp(ny * 0.5 + 0.5, 0.0, 1.0);\n" +
         "  col += half3(vt < 0.5 ? mix(" + Tokens.VEIL_TOP + ", " + Tokens.VEIL_MID + ", vt * 2.0)\n" +
-        "                        : mix(" + Tokens.VEIL_MID + ", " + Tokens.VEIL_BOTTOM + ", (vt - 0.5) * 2.0));\n" +
+        "                        : mix(" + Tokens.VEIL_MID + ", " + Tokens.VEIL_BOTTOM + ", (vt - 0.5) * 2.0)) * (1.0 - tint.a);\n" +   // a strong tint (the dock) keeps less white
         "  float2 L = float2(-0.4, -0.917);\n" +
         "  float facing = clamp(dot(n, L), 0.0, 1.0);\n" +
         "  float back = clamp(-dot(n, L), 0.0, 1.0);\n" +

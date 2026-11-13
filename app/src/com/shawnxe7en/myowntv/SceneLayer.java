@@ -29,6 +29,7 @@ final class SceneLayer {
     private static final class Entry {
         final int index;
         Bitmap photo, glass, cutout;
+        int[] glassPx;   // the glass copy as GW x GH pixels (software), for the shelf's glass
 
         Entry(int index) {
             this.index = index;
@@ -110,6 +111,11 @@ final class SceneLayer {
         c.drawBitmap(cur.cutout, null, dst, null);
     }
 
+    /** The current scene's blurred copy as GW x GH pixels (the shelf's glass), or null; the same array while the scene holds. */
+    int[] glassPixels() {
+        return cur == null ? null : cur.glassPx;
+    }
+
     /** The current scene's blurred copy (the clock's glass fill), or null. */
     Bitmap glassCopy() {
         return cur == null ? null : cur.glass;
@@ -164,8 +170,31 @@ final class SceneLayer {
         e.photo = decode(NAMES[index] + ".jpg", sample);
         if (e.photo == null) return null;
         e.glass = decode(NAMES[index] + "-glass.jpg", 2 * sample);
+        e.glassPx = pixels(NAMES[index] + "-glass.jpg");
         e.cutout = decode(NAMES[index] + "-fg.webp", sample);   // null for a scene without one
         return e;
+    }
+
+    /** The glass copy at Backdrop.GW x GH (1920 / 4 x 1080 / 4) as pixels: what Scene.setGlassImage takes. */
+    private int[] pixels(String file) {
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        o.inSampleSize = 4;
+        try (InputStream in = context.getAssets().open("scenes/" + file)) {
+            Bitmap b = BitmapFactory.decodeStream(in, null, o);
+            if (b == null) return null;
+            if (b.getWidth() != Backdrop.GW || b.getHeight() != Backdrop.GH) {
+                Bitmap scaled = Bitmap.createScaledBitmap(b, Backdrop.GW, Backdrop.GH, true);
+                b.recycle();
+                b = scaled;
+            }
+            int[] px = new int[Backdrop.GW * Backdrop.GH];
+            b.getPixels(px, 0, Backdrop.GW, 0, 0, Backdrop.GW, Backdrop.GH);
+            b.recycle();
+            return px;
+        } catch (IOException | RuntimeException ex) {
+            return null;
+        }
     }
 
     private Bitmap decode(String file, int sampleSize) {

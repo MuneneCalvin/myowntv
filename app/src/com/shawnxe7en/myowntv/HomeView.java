@@ -135,6 +135,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private SceneLayer sceneLayer;
     private GlassClock glassClock;
     private int sceneW, sceneH;
+    private int[] sceneGlassPx;
     private boolean sceneShown;   // a scene is on the sky layer: the top shows the centered date and weather line only
     private LinearGradient sceneShade;
     private Paint sceneDate, sceneWeather;
@@ -362,7 +363,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private final Paint veil = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tileFill = new Paint(Paint.ANTI_ALIAS_FLAG), glintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private LinearGradient glintShader;
+    private LinearGradient glintShader, glassSheen;
+    private float glassSheenH;
+    private final Paint tileRim = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Matrix glintMatrix = new Matrix();
     private final RectF tmp = new RectF(), cell = new RectF(), screen = new RectF();
     private final TextPaint fitPaint = new TextPaint();
@@ -1544,6 +1547,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             glassClock.reset();
         }
         if (!sceneLayer.draw(c, SystemClock.uptimeMillis())) return false;
+        int[] glassPx = sceneLayer.glassPixels();
+        if (glassPx != null && glassPx != sceneGlassPx) {   // the dock's glass now shows this scene (blurred)
+            sceneGlassPx = glassPx;
+            scene.setGlassImage(glassPx);
+            platter.invalidate();
+        }
         glassClock.update(clockText, clockPaint, w, h, k, () -> sky.invalidate());
         glassClock.draw(c, sceneLayer.glassCopy(), w, k);
         sceneLayer.drawForeground(c);
@@ -1740,7 +1749,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         // White glass by day; smoked glass at night.
         // Over a scene: Couch TV's dark glass (a strong smoky tint, so the pill matches the photo behind it).
         int tint = sceneShown ? Tokens.GLASS_TINT : tone(glassLight(), SMOKE);
-        float tintAlpha = sceneShown ? 0.58f : tone(0.42f, 0.12f), lift = sceneShown ? 0.03f : tone(0.03f, 0.08f);
+        float tintAlpha = sceneShown ? 0.64f : tone(0.42f, 0.12f), lift = sceneShown ? 0.02f : tone(0.03f, 0.08f);
         scene.liquid(c, platterRect, radius, tint, tintAlpha, lift,
                 tone(30, 34) * k, tone(22, 28) * k, tone(0.65f, 0.95f), 1);
     }
@@ -1966,6 +1975,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         float cx = base.centerX(), cy = base.centerY();
         cell.set(cx - bw * s / 2, cy - bh * s / 2, cx + bw * s / 2, cy + bh * s / 2);
         float r = r0 * s;
+        if (sceneShown && it.logo != null) {   // Couch TV's dock: frosted glass squares with a large logo
+            drawGlassTile(c, it, cx, cy, bw, bh, r0, s, fc);
+            return;
+        }
         // Shadow at the resting icon size, enlarged by the transform (so the blur stays cached): short at rest, deep
         // and lower when focused.
         c.save();
@@ -2011,6 +2024,31 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         } else {
             if (it.tile != null) coverImage(c, it.tile, it.tileShader, cell, r, 1);   // cropped to the square, not stretched
         }
+    }
+
+    /** A frosted glass square (white veil, top sheen, light rim that brightens with focus) with the app's logo on it. */
+    private void drawGlassTile(Canvas c, HomeApps.Item it, float cx, float cy, float bw, float bh, float r0, float s, float fc) {
+        c.save();
+        c.translate(cx, cy);
+        c.scale(s, s);
+        tmp.set(-bw / 2, -bh / 2, bw / 2, bh / 2);
+        fill.setShader(null);
+        fill.setColor(Ui.alpha(0xFFFFFFFF, 0.10f + 0.16f * fc));
+        c.drawRoundRect(tmp, r0, r0, fill);
+        if (glassSheen == null || glassSheenH != bh) {
+            glassSheen = new LinearGradient(0, -bh / 2, 0, bh / 2, 0x3DFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
+            glassSheenH = bh;
+        }
+        fill.setShader(glassSheen);
+        c.drawRoundRect(tmp, r0, r0, fill);
+        fill.setShader(null);
+        tileRim.setStrokeWidth(1.6f * k);
+        tileRim.setColor(Ui.alpha(0xFFFFFFFF, 0.20f + 0.65f * fc));
+        float inset = tileRim.getStrokeWidth() / 2;
+        tmp.inset(inset, inset);
+        c.drawRoundRect(tmp, r0 - inset, r0 - inset, tileRim);
+        c.restore();
+        drawLogo(c, it, cell, s, it.logoDark != null ? 2 : 0);
     }
 
     /**
@@ -2096,8 +2134,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (cached != null) return cached;
         float bw = tileRects[0].width() * (1 + FOCUS_GROW), bh = tileRects[0].height() * (1 + FOCUS_GROW);
         float lw = src.getWidth(), lh = src.getHeight();
-        float scale = (float) Math.sqrt(bw * bh * 0.085f / (lw * lh * Math.max(0.08f, it.logoInk))) * it.logoScale;
-        scale = Math.min(scale, Math.min(bw * 0.76f / lw, bh * 0.58f / lh));
+        float scale = (float) Math.sqrt(bw * bh * 0.12f / (lw * lh * Math.max(0.08f, it.logoInk))) * it.logoScale;   // big, like Couch TV's icons
+        scale = Math.min(scale, Math.min(bw * 0.8f / lw, bh * 0.64f / lh));
         if (rest) scale /= 1 + FOCUS_GROW;
         Bitmap out = Ui.downscale(src, Math.round(lw * scale), Math.round(lh * scale));
         crispLogos.put(key, out);

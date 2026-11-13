@@ -353,7 +353,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint veil = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint tileFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tileFill = new Paint(Paint.ANTI_ALIAS_FLAG), glintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private LinearGradient glintShader;
+    private final Matrix glintMatrix = new Matrix();
     private final RectF tmp = new RectF(), cell = new RectF(), screen = new RectF();
     private final TextPaint fitPaint = new TextPaint();
     private final RectF gridCell = new RectF();
@@ -1624,7 +1626,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             tileSlide = new Spring[list.size()];
             tileRects = new RectF[list.size()];
             for (int i = 0; i < tileFocus.length; i++) {
-                tileFocus[i] = new Spring(0.34f, 0.74f, 0);
+                tileFocus[i] = new Spring(0.24f, 1f, 0);   // 240 ms, no bounce (Couch TV's focus lift)
                 tileSlide[i] = new Spring(0.32f, 0.86f, 0);
                 tileRects[i] = new RectF();
             }
@@ -1943,6 +1945,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                 tileFill.setAlpha(255);
             }
             tileFill.setShader(null);
+            if (fc > 0.02f && fc < 0.98f) drawGlint(c, tmp, r0, fc);
             c.restore();
             drawLogo(c, it, cell, s, style[2]);
         } else if (it.logo != null) {
@@ -1953,6 +1956,24 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         } else {
             if (it.tile != null) roundImage(c, it.tile, it.tileShader, cell, r);
         }
+    }
+
+    /**
+     * A soft diagonal light band that crosses the tile while it takes focus: driven by the focus progress `p` (0..1), so
+     * it costs no frames of its own and stops when the focus settles. Fades in and out around the middle of the sweep.
+     */
+    private void drawGlint(Canvas c, RectF box, float radius, float p) {
+        if (glintShader == null) {   // one band, -1..1 wide, remade by the matrix below instead of per frame
+            glintShader = new LinearGradient(-1, 0, 1, 0, new int[] {0x00FFFFFF, 0xFFFFFFFF, 0x00FFFFFF}, null, Shader.TileMode.CLAMP);
+        }
+        float w = box.width(), half = 0.22f * w;
+        float cx = box.left - 0.3f * w + Spring.easeOut(p) * 1.6f * w;
+        glintMatrix.setScale(half, 1);
+        glintMatrix.postTranslate(cx, 0);
+        glintShader.setLocalMatrix(glintMatrix);
+        glintPaint.setShader(glintShader);
+        glintPaint.setAlpha(Math.round(255 * 0.22f * 4 * p * (1 - p)));
+        c.drawRoundRect(box, radius, radius, glintPaint);
     }
 
     /**

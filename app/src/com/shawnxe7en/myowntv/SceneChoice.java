@@ -9,7 +9,31 @@ import java.util.Set;
 final class SceneChoice {
     private SceneChoice() {}
 
-    static final String[] ALL = {"night", "golden", "water", "fog", "dawn"};
+    /** The scenes, in the order the settings list them (the first five came with Couch TV, the rest are Pexels photos). */
+    static final String[] ALL = {"night", "golden", "water", "fog", "dawn", "amber-dusk", "amber-ridges", "sea-sunset",
+            "golden-peaks", "aurora-coast", "aurora-lake", "mountain-mist", "dunes"};
+
+    /** How long each picture stays, in minutes. */
+    static final int[] MINUTES = {5, 10, 30, 60, 90, 150, 180};
+    static final int DEFAULT_MINUTES = 30;
+
+    /** The next (dir 1) or previous (dir -1) choice, wrapping; a value that isn't a choice counts as the default. */
+    static int stepMinutes(int current, int dir) {
+        int at = indexOf(current);
+        if (at < 0) at = indexOf(DEFAULT_MINUTES);
+        return MINUTES[(at + dir + MINUTES.length) % MINUTES.length];
+    }
+
+    private static int indexOf(int minutes) {
+        for (int i = 0; i < MINUTES.length; i++) if (MINUTES[i] == minutes) return i;
+        return -1;
+    }
+
+    /** "5 min", "1 h", "1 h 30 min". */
+    static String minutesLabel(int minutes) {
+        if (minutes < 60) return minutes + " min";
+        return minutes % 60 == 0 ? minutes / 60 + " h" : minutes / 60 + " h " + minutes % 60 + " min";
+    }
 
     private static Set<String> parse(String offCsv) {
         Set<String> off = new LinkedHashSet<>();

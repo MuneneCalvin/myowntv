@@ -3,3 +3,10 @@ From couch-tv (github.com/Seagey/couch-tv, tv-home/web/backgrounds): made with a
 source photo); not real places. That project's credits say "Use them however you like", and the cut-outs (-fg) and
 blurred glass copies (-glass) are made from the same scenes, so the same terms apply. The code is MIT.
 Resized copies only at 1080p; the 4K copies and the Wikimedia photos are not included.
+
+Pexels photos (amber-dusk, amber-ridges, sea-sunset, golden-peaks, aurora-coast, aurora-lake, mountain-mist, dunes):
+photos from pexels.com, free to use under the Pexels licence (https://www.pexels.com/license/): no credit needed, not to be
+redistributed as stock or wallpaper. Photographers, as in the Pexels file names: oscar-sanchez197 (20647440),
+meum-mare-204165854 (12639653), robert-stokoe-105922 (15991147), hammyx (6915292), therato (6663553), nicobecker (39666014),
+zkadoshi (28436769), reneterp (2504713). Cropped to 16:9 and resized to 1080p by tools/make_scenes.py; the -glass copies
+are the same photo blurred and brightened.

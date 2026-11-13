@@ -23,7 +23,8 @@ import java.util.concurrent.Executors;
  * its own background. Everything but the background loading runs on the main thread.
  */
 final class SceneLayer {
-    static final long PERIOD_MS = 20000, PRELOAD_MS = 6000;
+    static final long PRELOAD_MS = 6000;
+    private final long periodMs = Prefs.sceneMinutes() * 60_000L;
 
     private static final class Entry {
         final int index;
@@ -42,7 +43,7 @@ final class SceneLayer {
 
     private final Context context;
     private final String[] names = SceneChoice.enabled(SceneChoice.ALL, Prefs.scenesOff());   // the scenes turned on
-    private final SceneCycle cycle = new SceneCycle(names.length, PERIOD_MS);
+    private final SceneCycle cycle = new SceneCycle(names.length, periodMs);
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
@@ -51,7 +52,6 @@ final class SceneLayer {
     private Entry cur, next;
     private boolean fresh;       // a scene finished loading since the last draw
     private int loading = -1, generation;
-    private long startedAt = -1;
     private int width = 1920, height = 1080, sample = 1;
 
     SceneLayer(Context context) {
@@ -68,8 +68,7 @@ final class SceneLayer {
 
     /** Draws the scene photo (crossfading into the next). False if no scene is usable. */
     boolean draw(Canvas c, long nowMs) {
-        if (startedAt < 0) startedAt = nowMs;
-        long elapsed = nowMs - startedAt;
+        long elapsed = System.currentTimeMillis();   // by the wall clock: the same scene at the same time, not the first one at every start
         fresh = false;
         int idx = cycle.indexAt(elapsed);
         if (cur == null || cur.index != idx) {
@@ -81,8 +80,8 @@ final class SceneLayer {
                 request(idx);
             }
         }
-        long into = elapsed % PERIOD_MS;
-        if (next == null && into > PERIOD_MS - PRELOAD_MS && cur != null) request(cycle.nextIndex(cur.index));
+        long into = elapsed % periodMs;
+        if (next == null && into > periodMs - PRELOAD_MS && cur != null) request(cycle.nextIndex(cur.index));
         if (cur == null || cur.photo == null) return false;
         c.drawBitmap(cur.photo, null, dst, null);
         float fade = cycle.fade(elapsed);
@@ -95,14 +94,14 @@ final class SceneLayer {
 
     /** True while the picture changes: a crossfade, a scene due, or one just loaded. For callers that redraw on demand. */
     boolean needsFrame(long nowMs) {
-        if (startedAt < 0 || fresh || cur == null || cur.photo == null) return true;
-        long elapsed = nowMs - startedAt;
+        if (fresh || cur == null || cur.photo == null) return true;
+        long elapsed = System.currentTimeMillis();
         return cur.index != cycle.indexAt(elapsed) || cycle.fade(elapsed) > 0;
     }
 
     /** Mid-crossfade: callers redraw every frame. */
     boolean fading(long nowMs) {
-        return startedAt >= 0 && cycle.fade(nowMs - startedAt) > 0;
+        return cycle.fade(System.currentTimeMillis()) > 0;
     }
 
     /** The scenery cut-out, to be drawn after the clock (nothing for a scene without one). */

@@ -299,6 +299,13 @@ final class Prefs {
     static String scenesOff() { return sp().getString("scenesOff", ""); }
     static void setScenesOff(String csv) { put("scenesOff", csv); }
 
+    /** How long each scene stays, in minutes (one of SceneChoice.MINUTES). */
+    static int sceneMinutes() {
+        int m = sp().getInt("sceneMinutes", SceneChoice.DEFAULT_MINUTES);
+        return java.util.Arrays.binarySearch(SceneChoice.MINUTES, m) >= 0 ? m : SceneChoice.DEFAULT_MINUTES;
+    }
+    static void setSceneMinutes(int m) { put("sceneMinutes", m); }
+
     static boolean statusIcons() { return sp().getBoolean("statusicons", false); }
     static void setStatusIcons(boolean on) { put("statusicons", on); }
 

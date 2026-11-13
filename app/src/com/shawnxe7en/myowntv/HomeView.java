@@ -118,6 +118,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     // The tab bar is a 68 px capsule; the cards sit on the 5-column grid (the wide one spans 3).
     private static final float L_TITLE_BASE = 130, L_TABBAR_TOP = 158, L_TABBAR_H = 68, L_CARDS_TOP = 262, L_CARD_H = 442;
     private static final float WATCH_GAP = 40;
+    // Couch TV's "Keep watching" row under the scene clock: glass cards with a small picture, above the dock
+    private static final float KEEP_Y = 640, KEEP_W = 520, KEEP_H = 140, KEEP_GAP = 24, KEEP_PAD = 14;
     private static final float L_TALL_W = 320, L_CARD_GAP = 40, L_BUTTON = 68, L_BUTTON_GAP = 20, L_BUTTON_CY = 103;
     private static final float L_STATUS = 25, L_STATUS_GAP = 22;
     private static final String[] STATUS_SYMBOLS = {"wifi", "ethernet", "bluetooth", "usb"};
@@ -1533,9 +1535,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (!shown) drawLightSky(c);
     }
 
-    /** Scenes replace the home background where the clock is the top of the screen (not with picks or Continue Watching). */
+    /** Scenes replace the home background where the clock is the top of the screen, or the Keep watching row sits under it (not with picks). */
     private boolean scenesOn() {
-        if (!Prefs.scenes() || !clockMode()) return false;
+        if (!Prefs.scenes() || !(clockMode() || continueMode())) return false;
         if (glassClock == null) glassClock = new GlassClock(getContext());
         if (!glassClock.available()) return false;
         if (sceneLayer == null) sceneLayer = new SceneLayer(getContext());
@@ -4343,6 +4345,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Card i's place on screen (without its focus growth), scrolled with the row. */
     private void watchRect(int i, RectF out) {
+        if (keepRow()) {
+            float kstep = (KEEP_W + KEEP_GAP) * k, kx = MARGIN * k + i * kstep - watchScroll.value * kstep;
+            out.set(kx, KEEP_Y * k, kx + KEEP_W * k, (KEEP_Y + KEEP_H) * k);
+            return;
+        }
         float step = (WatchArt.W + WATCH_GAP) * k;
         float x = MARGIN * k + i * step - watchScroll.value * step, y = L_CARDS_TOP * k;
         out.set(x, y, x + WatchArt.W * k, y + WatchArt.H * k);
@@ -4354,7 +4361,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         watchTitles = new String[n];
         watchMetas = new String[n];
         TextPaint tp = new TextPaint(lCardTitle), mp = new TextPaint(lCardMeta);
-        float width = WatchArt.W * k;
+        float width = keepRow() ? (KEEP_W - KEEP_PAD * 3 - keepThumbW()) * k : WatchArt.W * k;
+        watchTextsKeep = keepRow();
         for (int i = 0; i < n; i++) {
             WatchNext.Item it = watching.get(i);
             watchTitles[i] = TextUtils.ellipsize(it.title, tp, width, TextUtils.TruncateAt.END).toString();
@@ -4379,18 +4387,18 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             if (!watchLoaded) return;   // not read yet: saying "nothing" now could be wrong
             String text = watchAllowed ? Ui.tr("Nothing half-watched in your apps.")
                     : Ui.tr("Missing permission: pick Continue Watching again in Home Settings.");
-            c.drawText(text, MARGIN * k, (L_CARDS_TOP + 60) * k, lCardMeta);
+            c.drawText(text, MARGIN * k, (keepRow() ? KEEP_Y + 60 : L_CARDS_TOP + 60) * k, keepRow() ? sceneMeta() : lCardMeta);
             return;
         }
-        if (watchTitles == null || watchTextsK != k || watchTextsGen != Ui.generation) prepareWatchTexts();
+        if (watchTitles == null || watchTextsK != k || watchTextsGen != Ui.generation || watchTextsKeep != keepRow()) prepareWatchTexts();
         int top = -1;
         for (int i = 0; i < watching.size(); i++) if (watchFocus[i].value > 0.02f && (top < 0 || watchFocus[i].value > watchFocus[top].value)) top = i;
         // Cards scrolled past the left margin slide out under this edge instead of leaving a sliver there (the first
         // card's focus growth and shadow still fit).
         c.save();
         c.clipRect(watchLeftEdge(), 0, w, h);
-        for (int i = 0; i < watching.size(); i++) if (i != top) drawWatchCard(c, i);
-        if (top >= 0) drawWatchCard(c, top);
+        for (int i = 0; i < watching.size(); i++) if (i != top) { if (keepRow()) drawKeepCard(c, i); else drawWatchCard(c, i); }
+        if (top >= 0) { if (keepRow()) drawKeepCard(c, top); else drawWatchCard(c, top); }
         c.restore();
     }
 
@@ -4418,6 +4426,106 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static float linear(int v) {
         float x = v / 255f;
         return x <= 0.04045f ? x / 12.92f : (float) Math.pow((x + 0.055f) / 1.055f, 2.4);
+    }
+
+    private boolean keepRow() {
+        return sceneShown && continueMode();
+    }
+
+    private static float keepThumbW() {
+        return (KEEP_H - 2 * KEEP_PAD) * 16f / 9;
+    }
+
+    private boolean watchTextsKeep;
+    private Paint keepText, keepTitle, keepApp, keepMeta;
+    private TextPaint keepAppTp;
+    private final RectF keepPic = new RectF();
+
+    private Paint sceneText() {
+        if (keepText == null) {
+            keepText = Ui.text(Ui.semibold, 31 * k, 0xDBFFFFFF);
+            keepText.setShadowLayer(14 * k, 0, 2 * k, 0x66000000);
+            keepTitle = Ui.text(Ui.semibold, 31 * k, 0xFFFFFFFF);
+            keepApp = Ui.text(Ui.medium, 20 * k, 0x99FFFFFF);
+            keepApp.setLetterSpacing(0.08f);
+            keepAppTp = new TextPaint(keepApp);
+            keepMeta = Ui.text(Ui.medium, 24 * k, 0xB3FFFFFF);
+        }
+        return keepText;
+    }
+
+    private Paint sceneMeta() {
+        sceneText();
+        return keepMeta;
+    }
+
+    /** A Keep watching card: dark glass, the picture at the left, the app, the title and the details, a progress bar. */
+    private void drawKeepCard(Canvas c, int i) {
+        sceneText();
+        watchRect(i, cell);
+        if (cell.left > w || cell.right <= watchLeftEdge()) return;
+        WatchNext.Item it = watching.get(i);
+        float v = watchFocus[i].value, f = Ui.clamp(v), s = 1 + 0.04f * v;
+        float bw = cell.width(), bh = cell.height(), r0 = 28 * k, pad = KEEP_PAD * k;
+        float cx = cell.centerX(), cy = cell.centerY() - 6 * k * v;
+        c.save();
+        c.translate(cx, cy);
+        c.scale(s, s);
+        tmp.set(-bw / 2, -bh / 2, bw / 2, bh / 2);
+        if (f > 0.01f) {
+            tmp.offset(0, 12 * k * f);
+            shadowDeep.setColor(Ui.alpha(0xFF000000, 0.35f * f));
+            shadows.draw(c, tmp, r0, DEEP_BLUR * k, shadowDeep);
+            tmp.offset(0, -12 * k * f);
+        }
+        fill.setShader(null);
+        fill.setColor(0x9920202A);   // dark glass
+        c.drawRoundRect(tmp, r0, r0, fill);
+        if (glassSheen == null || glassSheenH != bh) {
+            glassSheen = new LinearGradient(0, -bh / 2, 0, bh / 2, 0x33FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
+            glassSheenH = bh;
+        }
+        fill.setShader(glassSheen);
+        c.drawRoundRect(tmp, r0, r0, fill);
+        fill.setShader(null);
+        // the picture
+        float th = bh - 2 * pad, tw = keepThumbW();
+        RectF pic = keepPic;
+        pic.set(-bw / 2 + pad, -th / 2, -bw / 2 + pad + tw, th / 2);
+        Bitmap img = watchArt.get(it.pictureUri, it.pictureKey, it.bannerKey, it.pkg);
+        if (img != null) {
+            roundImage(c, img, watchArt.shader(img), pic, 16 * k);
+        } else {
+            fill.setColor(0xFF2C2C34);
+            c.drawRoundRect(pic, 16 * k, 16 * k, fill);
+        }
+        // the app, the title, the details
+        float tx = pic.right + pad * 1.3f, ty = -bh / 2 + pad + 26 * k;
+        String app = it.app == null ? "" : it.app.toUpperCase(java.util.Locale.ROOT);
+        c.drawText(TextUtils.ellipsize(app, keepAppTp, bw / 2 - tx - pad, TextUtils.TruncateAt.END).toString(), tx, ty, keepApp);
+        c.drawText(watchTitles[i], tx, ty + 40 * k, keepTitle);
+        String meta = watchMetas[i];
+        int dot = meta.indexOf(" · ");
+        if (dot >= 0) meta = meta.substring(dot + 3);   // the app is already above
+        else if (!app.isEmpty() && meta.equalsIgnoreCase(it.app)) meta = "";
+        if (!meta.isEmpty()) c.drawText(meta, tx, ty + 72 * k, keepMeta);
+        float progress = it.progress();
+        if (progress >= 0) {
+            float bar = 5 * k, bottom = bh / 2 - pad, right = bw / 2 - pad;
+            fill.setColor(0x40FFFFFF);
+            tmp.set(tx, bottom - bar, right, bottom);
+            c.drawRoundRect(tmp, bar / 2, bar / 2, fill);
+            fill.setColor(0xF2FFFFFF);
+            tmp.right = tmp.left + Math.max(bar, tmp.width() * progress);
+            c.drawRoundRect(tmp, bar / 2, bar / 2, fill);
+        }
+        // the rim: faint, a white ring when focused
+        tileRim.setStrokeWidth((1.6f + 2.4f * f) * k);
+        tileRim.setColor(Ui.alpha(0xFFFFFFFF, 0.28f + 0.72f * f));
+        float inset = tileRim.getStrokeWidth() / 2;
+        tmp.set(-bw / 2 + inset, -bh / 2 + inset, bw / 2 - inset, bh / 2 - inset);
+        c.drawRoundRect(tmp, r0 - inset, r0 - inset, tileRim);
+        c.restore();
     }
 
     /** Like a pick's card (same focus, shadow, sheen and rim), with the progress bar on the picture. */
@@ -4839,6 +4947,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (clockMode()) {
             titleRight = 0;
             drawClock(c);
+            if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
+            return;
+        }
+        if (keepRow()) {   // Couch TV's home: the date and weather, the clock (on the sky layer), "Keep watching" and its row
+            drawSceneHeader(c);
+            sceneText().setTextAlign(Paint.Align.LEFT);
+            c.drawText(Ui.tr("Continue Watching"), MARGIN * k, (KEEP_Y - 26) * k, sceneText());
+            drawWatchRow(c);
             if (HomeData.coinCount() > 0 || playingTab != null) drawQuotes(c);
             return;
         }

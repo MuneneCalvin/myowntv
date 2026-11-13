@@ -591,12 +591,12 @@ final class HomeMode {
             // By name, for adb logcat: the message only says whether it was the setup app or the home screen (#411).
             if (!owners.isEmpty()) AppLog.w("Wi-Fi networks saved by " + String.join(", ", sorted(owners)));
             boolean setupHome = setupIsHome(adb);
-            if (setupHome && owners.contains(GOOGLE_SETUP)) {
+            if (!HomeSwitch.SAFE && setupHome && owners.contains(GOOGLE_SETUP)) {   // the safe switch leaves the setup app on
                 throw new IOException(Ui.tr("the TV's first setup saved the Wi-Fi, and turning it off would erase those networks. "
                         + "In Settings → Network & Internet, forget the network and connect again (networks out of range don't "
                         + "show there: Claude Code can remove them from your computer), then try once more."));
             }
-            if (owners.contains(packageOf(home))) {
+            if (!HomeSwitch.SAFE && owners.contains(packageOf(home))) {   // and the TV's home too
                 throw new IOException(Ui.tr("the TV's home screen saved the Wi-Fi, and turning it off would erase those networks. "
                         + "In Settings → Network & Internet, forget the network and connect again (networks out of range don't "
                         + "show there: Claude Code can remove them from your computer), then try once more."));
@@ -611,6 +611,7 @@ final class HomeMode {
             Watchdog.clear(c);
             check(adb.shell("cmd package set-home-activity " + HOME_ACTIVITY), "Success",
                     Ui.tr("Android didn't accept the new home screen"));
+            allowAutoStart(adb);
             if (Config.SCREENSAVER) adb.shell("settings put secure screensaver_components " + DREAM);
             boolean jmOurs = !jm || setJmHome(adb, PKG);
             if (!jmOurs) AppLog.w("JmLauncher keeps the Home button: " + JM_HOME + " didn't take");
@@ -655,6 +656,7 @@ final class HomeMode {
                     continue;
                 }
                 if (pkg.equals(HTC_HOME) && !jmOurs) continue;
+                if (HomeSwitch.keepOn(pkg, homePkg)) continue;   // the safe switch: the TV's homes and the setup app stay on
                 String out = adb.shell("pm disable-user --user 0 " + pkg);
                 if (out.contains("disabled-user")) {
                     if (pkg.equals(GOOGLE_SETUP)) setupOn = false;
@@ -689,6 +691,15 @@ final class HomeMode {
             ModeJob.schedule(c, ModeJob.MEMORY, FREE, 120_000);
         } catch (Exception e) {
             done(c, Ui.trf("Couldn't turn on MyOwnTV: {error}", "error", e.getMessage()));
+        }
+    }
+
+    /** Lets the app start in the background (some brands kill it otherwise); a TV without the op just answers an error. */
+    private static void allowAutoStart(Adb adb) {
+        try {
+            if (HomeSwitch.failed(adb.shell(HomeSwitch.autoStartCommand(PKG, false)))) adb.shell(HomeSwitch.autoStartCommand(PKG, true));
+        } catch (IOException e) {
+            AppLog.w("auto-start permission: " + e.getMessage());
         }
     }
 
@@ -1018,6 +1029,7 @@ final class HomeMode {
                         continue;
                     }
                     if (needed.contains(pkg)) continue;
+                    if (HomeSwitch.keepOn(pkg, homePkg)) continue;   // the safe switch never turns these off, at any check
                     if (tvHome(pkg, homePkg) && setupOn) {
                         AppLog.w("kept the TV's home screen on: Google TV's setup app is still on");
                         continue;

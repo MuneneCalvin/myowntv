@@ -207,6 +207,25 @@
 
 ---
 
+## Amendment (2026-11-13): home screen first
+
+The owner confirmed the target: Couch TV's home look (see the spec's "Direction confirmed"). New tasks, done before Task 11:
+
+### Task 13: Scene clock at Couch size (screensaver and shared constants)
+- Clock size 330 px (Antonio) and top 172 px at 1080p, so the cut-out overlaps the digits' bottom. `DreamView.SCENE_CLOCK_TOP`, `clockPaint` size.
+- Verify on the TV with the golden and night scenes: the peak overlaps the bottom of the digits.
+
+### Task 14: Home screen wallpaper and glass clock
+- When `Prefs.scenes()`: `HomeView` draws `SceneLayer` photo, glass clock (shared with DreamView's `Glass` code, extracted to a `GlassClock` class), cut-out, then the existing hero/shelf. Date above the clock. Keep the sky layer's invalidation correct during the 1.5 s crossfade.
+- Review focus: Keep Watching row and the dock stay readable over a bright scene; no scene = existing background.
+
+### Task 15: Dock and icons like Couch TV
+- Restyle the shelf: rounded-square app tiles (about 22% corner radius), dark glass pill behind them, focus ring like the photo, icon art from the existing logos. Layout, ordering and behaviour stay Free My TV's.
+
+Then Tasks 11 and 12 as written.
+
+---
+
 ## Self-review notes
 
 - Spec coverage: goals map to Tasks 2-5 (look, motion, glass, clock), 6-9 (scenes), 11 (safe switch), 10 and 12 (tests, anti-goals). Non-goals appear only as exclusions.

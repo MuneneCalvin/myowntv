@@ -12,6 +12,13 @@ Skyworth Google TV (Android TV 14, about 1.8 GB RAM, 32-bit) runs a light native
 - Smooth on the Skyworth: lite path (no blur) for slow GPUs.
 - Becomes the real home screen without disabling Google TV's home or setup wizard.
 
+## Direction confirmed by the owner (2026-11-13, with a photo of the TV and Couch TV's home screenshots)
+Copy from Couch TV only the HOME SCREEN LOOK: the scene wallpaper, the big glass clock behind the scenery (about 330 px
+Antonio at 1080p, top about 172 px, the cut-out overlapping the bottom of the digits), and the app dock (rounded-square
+app icons in a dark glass pill) plus the iOS feel. Everything else (layout, cards, widgets, settings, features) stays
+Free My TV's. Home is the main target; the screensaver already has the scenes. Reference: `~/couch-tv/docs/screens/home-golden.jpg`,
+`home-night.jpg`.
+
 ## Non-goals
 - Phone remote, bridge, assistant, Keep Watching, Couch TV's layout (phone remote is a later, separate project).
 - LG / Samsung / Fire TV.

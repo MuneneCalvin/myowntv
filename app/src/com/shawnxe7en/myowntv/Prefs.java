@@ -220,7 +220,7 @@ final class Prefs {
 
     /** Picks per tab on the home screen: 3 (as it always was) up to Recs.MAX_CARDS. */
     static int cards() {
-        return Math.max(3, Math.min(Recs.MAX_CARDS, sp().getInt("cards", 3)));
+        return Math.max(3, Math.min(Recs.MAX_CARDS, sp().getInt("cards", Recs.MAX_CARDS)));
     }
 
     static void setCards(int n) { put("cards", n); }

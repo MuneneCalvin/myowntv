@@ -381,7 +381,7 @@ final class Recs {
         java.util.Set<String> seen = new java.util.HashSet<>();
         take(out, seen, progress, 0, Math.max(1, cards * 2 / 5));
         take(out, seen, liked, hour * cards, Math.max(2, cards * 3 / 5));
-        take(out, seen, list, hour * cards, cards);
+        take(out, seen, Mix.byGroup(list, x -> x.pkg), hour * cards, cards);   // one service in turn after the other
         take(out, seen, progress, 0, cards);
         take(out, seen, liked, hour * cards, cards);
         return out;
@@ -778,13 +778,31 @@ final class Recs {
         }
         // 2. Recent releases on the TV's services: movies from the past year and shows with a new episode in the
         //    past 3 months.
-        JSONArray movies = get("/discover/movie?vote_count.gte=30&primary_release_date.gte=" + day(-365)
-                + "&primary_release_date.lte=" + day(0) + common).getJSONArray("results");
-        JSONArray shows = get("/discover/tv?vote_count.gte=20&air_date.gte=" + day(-90) + "&air_date.lte=" + day(0)
-                + common).getJSONArray("results");
+        // One query per service, not one for all of them: sorted by popularity together, the biggest catalogue (Netflix)
+        // takes the whole first page and the other services never show. Their titles then take turns (Mix.byGroup).
+        Map<String, StringBuilder> idsByService = new java.util.LinkedHashMap<>();
+        for (Map.Entry<Integer, String[]> e : services.entrySet()) {
+            StringBuilder sb = idsByService.computeIfAbsent(e.getValue()[1], k -> new StringBuilder());
+            sb.append(sb.length() == 0 ? "" : "|").append(e.getKey());
+        }
         List<Pick> newMovies = new ArrayList<>(), newShows = new ArrayList<>();
-        for (int i = 0; i < movies.length(); i++) add(newMovies, movies.getJSONObject(i), "movie");
-        for (int i = 0; i < shows.length(); i++) add(newShows, shows.getJSONObject(i), "tv");
+        Map<Pick, String> serviceOf = new java.util.IdentityHashMap<>();
+        for (Map.Entry<String, StringBuilder> e : idsByService.entrySet()) {
+            String own = "&language=" + lang() + "&watch_region=" + REGION + "&with_watch_monetization_types=" + WATCH_TYPES
+                    + "&include_adult=false&sort_by=popularity.desc&with_watch_providers=" + URLEncoder.encode(e.getValue().toString(), "UTF-8")
+                    + (Prefs.hideAnimation() ? "&without_genres=" + ANIMATION : "");
+            JSONArray movies = get("/discover/movie?vote_count.gte=30&primary_release_date.gte=" + day(-365)
+                    + "&primary_release_date.lte=" + day(0) + own).getJSONArray("results");
+            JSONArray shows = get("/discover/tv?vote_count.gte=20&air_date.gte=" + day(-90) + "&air_date.lte=" + day(0)
+                    + own).getJSONArray("results");
+            int m0 = newMovies.size(), s0 = newShows.size();
+            for (int i = 0; i < movies.length(); i++) add(newMovies, movies.getJSONObject(i), "movie");
+            for (int i = 0; i < shows.length(); i++) add(newShows, shows.getJSONObject(i), "tv");
+            for (int i = m0; i < newMovies.size(); i++) serviceOf.put(newMovies.get(i), e.getKey());
+            for (int i = s0; i < newShows.size(); i++) serviceOf.put(newShows.get(i), e.getKey());
+        }
+        newMovies = Mix.byGroup(newMovies, serviceOf::get);
+        newShows = Mix.byGroup(newShows, serviceOf::get);
         newMovies.removeIf(x -> watched.contains(key(x)));
         newShows.removeIf(x -> watched.contains(key(x)));
         // Services with mostly older titles (free ones like Pluto TV) have few or no new ones: their most popular
@@ -1149,7 +1167,7 @@ final class Recs {
         // Switched on, one found by name counts; off, finding it changes nothing, so nothing is fetched again (a 0 would:
         // it still multiplies the stamp by 31).
         for (String[] service : byName) if (installed(service[2])) stamp = stamp * 31L + service[2].hashCode();
-        return stamp;
+        return stamp * 31L + 3;   // 3: bumped so lists made before the picks mixed their services are fetched again
     }
 
     // MARK: - Watchmode (the title's own page in its app; the free plan's web addresses are what the apps open)

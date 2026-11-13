@@ -367,6 +367,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private float glassSheenH, glassBrandH;
     private final java.util.HashMap<Integer, LinearGradient> glassBrand = new java.util.HashMap<>();
     private final Paint tileRim = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.ColorMatrixColorFilter greyIcon = new android.graphics.ColorMatrixColorFilter(new float[] {
+        0.3f, 0.59f, 0.11f, 0, 0,  0.3f, 0.59f, 0.11f, 0, 0,  0.3f, 0.59f, 0.11f, 0, 0,  0, 0, 0, 1, 0});
     { tileRim.setStyle(Paint.Style.STROKE); }
     private final Matrix glintMatrix = new Matrix();
     private final RectF tmp = new RectF(), cell = new RectF(), screen = new RectF();
@@ -1977,7 +1979,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         float cx = base.centerX(), cy = base.centerY();
         cell.set(cx - bw * s / 2, cy - bh * s / 2, cx + bw * s / 2, cy + bh * s / 2);
         float r = r0 * s;
-        if (sceneShown && it.logo != null) {   // Couch TV's dock: frosted glass squares with a large logo
+        if (sceneShown && (it.logo != null || it.icon != null)) {   // Couch TV's dock: dark glass squares with a clear glyph
             drawGlassTile(c, it, cx, cy, bw, bh, r0, s, fc);
             return;
         }
@@ -2082,6 +2084,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             c.drawBitmap(it.glyph, null, tmp, bitmapPaint);
             bitmapPaint.setAlpha(255);
             if (fc > 0.01f) coverImage(c, it.icon, it.iconShader, cell, r0 * s, fc);   // its own colours
+        } else if (it.logo == null && it.icon != null) {
+            // An icon that won't split is shown grey and half see-through at rest (Couch TV), in its colours when focused
+            imageFill.setColorFilter(greyIcon);
+            coverImage(c, it.icon, it.iconShader, cell, r0 * s, 0.55f * (1 - fc));
+            imageFill.setColorFilter(null);
+            if (fc > 0.01f) coverImage(c, it.icon, it.iconShader, cell, r0 * s, fc);
         } else {
             bitmapPaint.setAlpha(Math.round(255 * (0.82f + 0.18f * fc)));
             drawLogo(c, it, cell, s, 1);

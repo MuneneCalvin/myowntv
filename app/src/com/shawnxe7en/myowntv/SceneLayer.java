@@ -23,7 +23,6 @@ import java.util.concurrent.Executors;
  * its own background. Everything but the background loading runs on the main thread.
  */
 final class SceneLayer {
-    static final String[] NAMES = {"night", "golden", "water", "fog", "dawn"};
     static final long PERIOD_MS = 20000, PRELOAD_MS = 6000;
 
     private static final class Entry {
@@ -42,12 +41,13 @@ final class SceneLayer {
     }
 
     private final Context context;
-    private final SceneCycle cycle = new SceneCycle(NAMES.length, PERIOD_MS);
+    private final String[] names = SceneChoice.enabled(SceneChoice.ALL, Prefs.scenesOff());   // the scenes turned on
+    private final SceneCycle cycle = new SceneCycle(names.length, PERIOD_MS);
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final Rect dst = new Rect();
-    private final boolean[] failed = new boolean[NAMES.length];
+    private final boolean[] failed = new boolean[names.length];
     private Entry cur, next;
     private boolean fresh;       // a scene finished loading since the last draw
     private int loading = -1, generation;
@@ -167,11 +167,11 @@ final class SceneLayer {
 
     private Entry load(int index) {
         Entry e = new Entry(index);
-        e.photo = decode(NAMES[index] + ".jpg", sample);
+        e.photo = decode(names[index] + ".jpg", sample);
         if (e.photo == null) return null;
-        e.glass = decode(NAMES[index] + "-glass.jpg", 2 * sample);
-        e.glassPx = pixels(NAMES[index] + "-glass.jpg");
-        e.cutout = decode(NAMES[index] + "-fg.webp", sample);   // null for a scene without one
+        e.glass = decode(names[index] + "-glass.jpg", 2 * sample);
+        e.glassPx = pixels(names[index] + "-glass.jpg");
+        e.cutout = decode(names[index] + "-fg.webp", sample);   // null for a scene without one
         return e;
     }
 

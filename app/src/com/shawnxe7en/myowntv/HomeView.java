@@ -710,7 +710,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             clockMinute = -1;
             textPrefs = -1;
         }
-        sceneShown = false;   // Settings may have turned Scenes on or off
+        sceneShown = false;   // Settings may have turned Scenes on or off, or changed which ones
+        if (sceneLayer != null) {
+            sceneLayer.release();
+            sceneLayer = null;
+            sceneGlassPx = null;
+        }
         sky.invalidate();
         heroDirty = true;
         long now = SystemClock.uptimeMillis();

@@ -295,6 +295,10 @@ final class Prefs {
     static boolean scenes() { return sp().getBoolean("scenes", true); }
     static void setScenes(boolean on) { put("scenes", on); }
 
+    /** The scenes turned off, as a comma list of names (SceneChoice). */
+    static String scenesOff() { return sp().getString("scenesOff", ""); }
+    static void setScenesOff(String csv) { put("scenesOff", csv); }
+
     static boolean statusIcons() { return sp().getBoolean("statusicons", false); }
     static void setStatusIcons(boolean on) { put("statusicons", on); }
 

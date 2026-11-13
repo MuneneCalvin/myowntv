@@ -150,7 +150,7 @@ public class SettingsActivity extends Activity {
 
     static final class SettingsView extends View implements Choreographer.FrameCallback {
         private static final int MAIN = 0, HOME_CHOICE = 1, HOME_SETTINGS = 2, REMOTE_KEYS = 3, PICKER = 4, SHELF_EDIT = 5,
-                POWER = 6, TMDB_KEY = 7, PICKS = 8, PICK_FROM = 9, WATCH_APPS = 10;
+                POWER = 6, TMDB_KEY = 7, PICKS = 8, PICK_FROM = 9, WATCH_APPS = 10, SCENES_PICK = 11;
         private static final float LIST_ROW_H = 68, LIST_ROW_GAP = 6;
         private static final int PICK_VISIBLE = 9;
         private static final float LIST_X = 1000, LIST_R = 1824, LIST_TOP = 186, ROW_GAP = 8, CHOICE_H = 104;
@@ -364,6 +364,13 @@ public class SettingsActivity extends Activity {
                     if (at >= services.size()) return "";
                     return services.get(at)[1] + ", " + onOff(!Prefs.serviceOff(services.get(at)[0])) + ", " + Ui.trf("{i} of {n}", "i", at + 1, "n", services.size());
                 }
+                case SCENES_PICK: {
+                    int at = pickScroll + row;
+                    if (at > SceneChoice.ALL.length) return "";
+                    return (at == 0 ? Ui.tr("Scenes") + ", " + onOff(Prefs.scenes()) : sceneLabel(SceneChoice.ALL[at - 1]) + ", "
+                            + onOff(!SceneChoice.isOff(Prefs.scenesOff(), SceneChoice.ALL[at - 1])))
+                            + ", " + Ui.trf("{i} of {n}", "i", at + 1, "n", SceneChoice.ALL.length + 1);
+                }
                 case WATCH_APPS: {
                     int at = pickScroll + row;
                     if (watchApps == null || at >= listSize()) return "";
@@ -550,6 +557,7 @@ public class SettingsActivity extends Activity {
                 case TMDB_KEY: return keyRowIds.length;
                 case PICKS: return picksLabels().length;
                 case PICK_FROM: return Math.min(PICK_VISIBLE, services.size());
+                case SCENES_PICK: return SceneChoice.ALL.length + 1;
                 case WATCH_APPS: return Math.min(PICK_VISIBLE, listSize());
                 default: return Prefs.KEYS.length;
             }
@@ -590,6 +598,7 @@ public class SettingsActivity extends Activity {
             else if (screen == TMDB_KEY) drawKey(c);
             else if (screen == PICK_FROM) drawServices(c);
             else if (screen == WATCH_APPS) drawWatchApps(c);
+            else if (screen == SCENES_PICK) drawScenePicker(c);
             else drawList(c);
         }
 
@@ -909,7 +918,7 @@ public class SettingsActivity extends Activity {
                     if (down && screen == SHELF_EDIT) {
                         moveShelfApp(e.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
                         spoken.focusMoved();   // TalkBack reads the new value or place
-                    } else if (down && (screen == HOME_SETTINGS || screen == REMOTE_KEYS || screen == POWER || screen == PICKS || screen == PICK_FROM)) {
+                    } else if (down && (screen == HOME_SETTINGS || screen == REMOTE_KEYS || screen == POWER || screen == PICKS || screen == PICK_FROM || screen == SCENES_PICK)) {
                         adjust(e.getKeyCode() == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
                     }
                     whyRows = null;   // a value or the rows' order changed: what each row needs may have too
@@ -959,6 +968,10 @@ public class SettingsActivity extends Activity {
                                 pickScroll = 0;   // the Picks screen has a few rows
                                 focus = 1;
                                 screen = PICKS;
+                            } else if (screen == SCENES_PICK) {
+                                pickScroll = Math.max(0, SCENES_ROW - 9);   // the Scenes row, on screen
+                                focus = SCENES_ROW - pickScroll;
+                                screen = HOME_SETTINGS;
                             } else if (screen == WATCH_APPS) {
                                 focus = WATCH_ROW;   // on the list's first screen
                                 pickScroll = 0;
@@ -1134,7 +1147,7 @@ public class SettingsActivity extends Activity {
             v[CITY_ROW] = !cityStatus.isEmpty() ? cityStatus : Prefs.city().isEmpty() ? "—" : Prefs.city();
             v[FORECAST_ROW] = Prefs.forecast().equals("days") ? Ui.tr("Next days") : Ui.tr("Next hours");
             v[PLAYING_ROW] = onOff(Prefs.nowPlaying());
-            v[SCENES_ROW] = onOff(Prefs.scenes());
+            v[SCENES_ROW] = !Prefs.scenes() ? Ui.tr("Off") : SceneChoice.enabled(SceneChoice.ALL, Prefs.scenesOff()).length + " / " + SceneChoice.ALL.length;
             if (HOME_ROW >= 0) v[HOME_ROW] = onOff(HomeAssistant.on(getContext()));
             v[QUOTES_ROW] = onOff(Prefs.quotes());
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
@@ -1457,6 +1470,10 @@ public class SettingsActivity extends Activity {
             }
             if (screen == PICK_FROM) {
                 toggleService();
+                return;
+            }
+            if (screen == SCENES_PICK) {
+                toggleScene();
                 return;
             }
             if (screen == REMOTE_KEYS) {
@@ -2016,6 +2033,7 @@ public class SettingsActivity extends Activity {
 
         private int listSize() {
             if (screen == WATCH_APPS) return watchApps == null ? 0 : watchApps.size() + (watchHiddenCount > 0 ? 1 : 0);
+            if (screen == SCENES_PICK) return SceneChoice.ALL.length + 1;
             return screen == SHELF_EDIT ? shelfRows.size() : screen == HOME_SETTINGS ? settingLabels().length : screen == PICK_FROM ? services.size() : pickLabels.size();
         }
 
@@ -2382,6 +2400,48 @@ public class SettingsActivity extends Activity {
             for (String[] service : Recs.installedServices(getContext())) someServicesOff |= service[0].indexOf('.') < 0 && Prefs.serviceOff(service[0]);
         }
 
+        private static String sceneLabel(String name) {
+            switch (name) {
+                case "night": return Ui.tr("Dusk lake");
+                case "golden": return Ui.tr("Golden volcano");
+                case "water": return Ui.tr("Underwater");
+                case "fog": return Ui.tr("Misty forest");
+                default: return Ui.tr("Dawn hills");
+            }
+        }
+
+        /** OK or the arrows: row 0 is Scenes on or off, then one row per scene (the last one on can't be turned off). */
+        private void toggleScene() {
+            int at = pickScroll + focus;
+            if (at == 0) {
+                Prefs.setScenes(!Prefs.scenes());
+            } else if (at <= SceneChoice.ALL.length) {
+                Prefs.setScenesOff(SceneChoice.toggle(Prefs.scenesOff(), SceneChoice.ALL[at - 1]));
+            }
+        }
+
+        /** Scenes: the master switch, then each scene On or Off. */
+        private void drawScenePicker(Canvas c) {
+            Paint heading = Ui.text(Ui.displaySemibold, 34 * k, 0xFFFFFFFF);
+            c.drawText(Ui.tr("Scenes"), LIST_X * k + 30 * k, (LIST_TOP - 24) * k, heading);
+            int rows = SceneChoice.ALL.length + 1;
+            for (int i = 0; i < rows; i++) {
+                float y = (LIST_TOP + 20 + i * (LIST_ROW_H + LIST_ROW_GAP)) * k;
+                rowRect.set(LIST_X * k, y, LIST_R * k, y + LIST_ROW_H * k);
+                float f = drawRowBackground(c, i);
+                rowLabel.setColor(blend(0xF2FFFFFF, INK, f));
+                rowValue.setColor(blend(0xB3FFFFFF, 0xB31C1C1E, f));
+                float base = rowRect.centerY() + Ui.halfCap(rowLabel);
+                String label = i == 0 ? Ui.tr("Scenes") : sceneLabel(SceneChoice.ALL[i - 1]);
+                boolean on = i == 0 ? Prefs.scenes() : !SceneChoice.isOff(Prefs.scenesOff(), SceneChoice.ALL[i - 1]);
+                c.drawText(label, rowRect.left + 30 * k, base, rowLabel);
+                c.drawText(onOff(on), rowRect.right - 30 * k, base, rowValue);
+            }
+            Paint hint = Ui.text(Ui.regular, 23 * k, 0x8CFFFFFF);
+            c.drawText(Ui.tr("The wallpapers behind the clock take turns: the ones that are off are skipped."),
+                    LIST_X * k + 30 * k, (LIST_TOP + 20 + rows * (LIST_ROW_H + LIST_ROW_GAP) + 36) * k, hint);
+        }
+
         private void toggleService() {
             int at = pickScroll + focus;
             if (at >= services.size()) return;
@@ -2520,6 +2580,14 @@ public class SettingsActivity extends Activity {
                 invalidate();
                 spoken.focusMoved();
                 return;
+            } else if (screen == SCENES_PICK) {
+                toggleScene();
+                invalidate();
+                return;
+            } else if (screen == HOME_SETTINGS && pickScroll + focus == SCENES_ROW) {
+                pickScroll = 0;
+                focus = 0;
+                screen = SCENES_PICK;
             } else if (screen == WATCH_APPS) {
                 toggleWatchApp();
                 invalidate();

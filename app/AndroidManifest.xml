@@ -15,8 +15,6 @@
     <!-- The sleep timer on time: from Android 12, windows under 10 minutes stretch to 10. No prompt for either. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <!-- Updates from GitHub's releases (Updates): Android's installer still asks before each one. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- "Continue watching": what you left half-way in your apps, from Android TV's own Watch Next list. -->
     <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
     <!-- The Bluetooth status icon: whether headphones or a speaker are connected. Before Android 12 the permission is

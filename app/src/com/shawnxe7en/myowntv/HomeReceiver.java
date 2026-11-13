@@ -13,14 +13,9 @@ public class HomeReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)) {
             HomeMode.bootCheck(context);
-            Updates.schedule(context);
         } else if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             HomeMode.verify(context);   // app updated: complete MyOwnTV mode if something is missing
             HomeMode.ensureRemoteService(context, 3_000);
-            Updates.schedule(context);
-            later(() -> Updates.cleanUp(context));
-        } else if (Updates.ACTION.equals(action)) {
-            later(() -> Updates.status(context, intent));
         } else if (SleepTimer.ACTION.equals(action)) {
             long setAt = intent.getLongExtra("setAt", 0);
             later(() -> SleepTimer.fire(context, setAt));   // ADB is network

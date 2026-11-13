@@ -56,7 +56,6 @@ public class SettingsActivity extends Activity {
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Watchdog.install(this);
-        Updates.schedule(this);   // the week's update check, once (a fresh install has had no boot or update yet)
         Ui.init(this);
         SleepTimer.listen(this);   // :home may start here, from the launcher icon
         SleepTimer.check(this);
@@ -172,9 +171,6 @@ public class SettingsActivity extends Activity {
         private String choiceNow = "";
         private final List<String[]> cities = new ArrayList<>();
         private String cityStatus = "";
-        private JSONObject updates = new JSONObject();   // Updates' file (the main process writes it), read in poll
-        private long checkAskedAt, installAskedAt;       // OK on Updates, on the wall clock as the file's "at"
-        private String installed = "";                   // this app's version (an update starts a new process)
         // TMDB key: the page a phone opens (KeyPage), its QR code and what the screen says, all made when they change,
         // never while drawing.
         private KeyPage keyPage;
@@ -223,11 +219,6 @@ public class SettingsActivity extends Activity {
                 sleepLeft = SleepTimer.minutesLeft(getContext());
                 hasKey = Recs.hasKey(getContext());
                 recs = Recs.status(getContext());
-                String updatesWas = updatesValue();
-                updates = Updates.state(getContext());
-                if (screen == HOME_SETTINGS && pickScroll + focus == updatesRow() && !updatesWas.equals(updatesValue())) {
-                    spoken.focusMoved();   // TalkBack reads the Updates row's new value
-                }
                 boolean nowBusy = !busyText().isEmpty();
                 if (nowBusy) {
                     pendingAt = 0;
@@ -256,13 +247,13 @@ public class SettingsActivity extends Activity {
                 wasBusy = nowBusy;
                 // Redrawn only when something shown changed: also My Photos' count (Immich's arrive while it shows) and
                 // the minute (the notices' "{n} min ago").
-                String stamp = state.toString() + recs.toString() + updates.toString() + ":" + sleepLeft + ":" + whyNow
-                        + ":" + hasKey + ":" + pendingAt + ":" + stalled + ":" + busy() + ":" + updatesValue()
+                String stamp = state.toString() + recs.toString() + ":" + sleepLeft + ":" + whyNow
+                        + ":" + hasKey + ":" + pendingAt + ":" + stalled + ":" + busy()
                         + ":" + (Trakt.available() ? traktValue() : "") + ":" + System.currentTimeMillis() / 60_000
                         + ":" + (screen == HOME_SETTINGS ? Photos.files(getContext()).size() : 0);
                 if (!stamp.equals(pollStamp)) invalidate();
                 pollStamp = stamp;
-                handler.postDelayed(this, busy() || updating() ? 500 : 2000);
+                handler.postDelayed(this, busy() ? 500 : 2000);
             }
         };
 
@@ -276,7 +267,6 @@ public class SettingsActivity extends Activity {
             scene.applyPalette();
             setFocusable(true);
             setContentDescription("MyOwnTV");
-            installed = Updates.installedVersion(a);
             // TalkBack: one item per row, id = row + 1.
             spoken = new Spoken(this, new Spoken.Source() {
                 @Override public void items(List<Integer> out) { for (int i = 1; i <= rowCount(); i++) out.add(i); }
@@ -982,7 +972,7 @@ public class SettingsActivity extends Activity {
         /** Home Settings: language, temperature, theme, clock, my photos, sounds, top of the screen, picks, Continue
          *  Watching's apps, watch from the screensaver, Android apps, status icons, Recent Apps, at power-on, Live TV button, weather, city, forecast,
          *  now playing, scenes, quotes, one row per coin, then the TMDB and Watchmode keys and
-         *  updates (the last row). */
+         *  the keys (the last rows). */
         private static final int CLOCK_ROW = 3, PHOTOS_ROW = 4, TOP_ROW = 6, PICKS_ROW = 7, WATCH_ROW = 8,
                 SAVER_ROW = 9, ANDROID_APPS_ROW = 10, STATUS_ICONS_ROW = 11, RECENTS_ROW = 12, POWER_ON_ROW = 13,
                 LIVE_BUTTON_ROW = 14, WEATHER_ROW = 15, CITY_ROW = 16, FORECAST_ROW = 17, PLAYING_ROW = 18,
@@ -1026,21 +1016,16 @@ public class SettingsActivity extends Activity {
             if (dollar()) l.add(Ui.tr("Dollar"));
             l.add(Ui.tr("TMDB key"));
             l.add(Ui.tr("Watchmode key"));
-            l.add(Ui.tr("Updates"));
             return l.toArray(new String[0]);
         }
 
-        /** The Updates row: the last one, after the coins and the keys. */
-        private int updatesRow() {
-            return settingLabels().length - 1;
-        }
-
+        /** The last two rows: the TMDB key and the Watchmode key, after the coins. */
         private int keyRow() {
-            return updatesRow() - 2;
+            return settingLabels().length - 2;
         }
 
         private int watchmodeRow() {
-            return updatesRow() - 1;
+            return settingLabels().length - 1;
         }
 
         /** A key's row: "Not set", or the key's last 4 characters (all that's ever shown of it). */
@@ -1131,10 +1116,9 @@ public class SettingsActivity extends Activity {
             v[SCENES_ROW] = !Prefs.scenes() ? Ui.tr("Off") : SceneChoice.enabled(SceneChoice.ALL, Prefs.scenesOff()).length + " / " + SceneChoice.ALL.length;
             v[QUOTES_ROW] = onOff(Prefs.quotes());
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
-            for (int i = COIN_ROWS; i < v.length - 3; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
-            v[v.length - 3] = keyValue(Recs.key());
-            v[v.length - 2] = keyValue(Recs.watchmodeKey());
-            v[v.length - 1] = updatesValue();
+            for (int i = COIN_ROWS; i < v.length - 2; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
+            v[v.length - 2] = keyValue(Recs.key());
+            v[v.length - 1] = keyValue(Recs.watchmodeKey());
             return v;
         }
 
@@ -1562,47 +1546,6 @@ public class SettingsActivity extends Activity {
                 return true;
             });
             dialog.show();
-        }
-
-        // MARK: - Updates (GitHub's releases)
-
-        /**
-         * OK on Updates: installs one that's ready, else checks now. Both run as jobs in the main process, as the week's
-         * check does, so one process writes the state; this screen reads it in poll.
-         */
-        private void updateNow() {
-            Context c = getContext();
-            updates = Updates.state(c);
-            long now = System.currentTimeMillis();
-            if (Updates.ready(updates, installed)) {
-                if (now - installAskedAt < 5000) return;   // Android's installer is on its way
-                installAskedAt = now;
-                ModeJob.schedule(c, ModeJob.INSTALL, "", 0);
-            } else {
-                if (Updates.busy(updates) || checkAsked()) return;
-                checkAskedAt = now;
-                ModeJob.schedule(c, ModeJob.UPDATE, "", 0);
-            }
-            handler.removeCallbacks(poll);
-            handler.postDelayed(poll, 500);
-            invalidate();
-            spoken.focusMoved();
-        }
-
-        /** OK asked for a check that hasn't started yet (the job writes "checking" as it starts). */
-        private boolean checkAsked() {
-            long now = System.currentTimeMillis();
-            return now - checkAskedAt < 10_000 && updates.optLong("at") < checkAskedAt;
-        }
-
-        /** The Updates row: what the last check found, or "Checking…" from OK until the check starts. */
-        private String updatesValue() {
-            return checkAsked() ? Ui.tr("Checking…") : Updates.summary(updates, installed);
-        }
-
-        /** A check or an install on its way or under way: poll reads the file more often. */
-        private boolean updating() {
-            return Updates.busy(updates) || System.currentTimeMillis() - Math.max(checkAskedAt, installAskedAt) < 10_000;
         }
 
         // MARK: - TMDB key (from a phone through KeyPage's QR code, or typed with the remote)
@@ -2565,8 +2508,6 @@ public class SettingsActivity extends Activity {
                     : screen == HOME_SETTINGS && from + focus == POWER_ON_ROW && unavailable(focus) == null
                     ? Ui.tr("Only after a full start, not from standby.")
                     : screen == HOME_SETTINGS && (from + focus == keyRow() || from + focus == watchmodeRow()) ? Ui.tr("OK: send it from your phone, or type it.")
-                    : screen == HOME_SETTINGS && from + focus == updatesRow() ? (Updates.ready(updates, installed)
-                    ? Ui.tr("OK installs it; Android asks first.") : Ui.tr("OK checks for a new version."))
                     : Ui.tr("OK or the arrows change the value.")), LIST_X * k + 30 * k, hy, hint);
             if (keys) {
                 c.drawText(RemoteKeys.VESTEL ? Ui.tr("YouTube, Prime Video and Google Play: the TV itself controls those buttons.")
@@ -2653,9 +2594,6 @@ public class SettingsActivity extends Activity {
                 openPhotoSources();
             } else if (screen == HOME_SETTINGS && pickScroll + focus == PHOTOS_ROW) {
                 askRemovePhotos();
-                return;
-            } else if (screen == HOME_SETTINGS && pickScroll + focus == updatesRow()) {
-                updateNow();
                 return;
             } else if (screen == HOME_SETTINGS && (pickScroll + focus == keyRow() || pickScroll + focus == watchmodeRow())) {
                 openKeyScreen(pickScroll + focus == watchmodeRow());

@@ -108,7 +108,6 @@ public class HomeActivity extends Activity {
             home.removeCallbacks(powerOnLive);
             home.postDelayed(powerOnLive, 10_000);
         }
-        Updates.tellOnce(this);   // an update the week's check got ready: said once
     }
 
     @Override protected void onPause() {

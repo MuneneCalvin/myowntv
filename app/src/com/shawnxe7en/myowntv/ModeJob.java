@@ -21,7 +21,7 @@ import java.nio.charset.StandardCharsets;
  */
 public class ModeJob extends JobService {
     static final String APPLY = "apply", VERIFY = "verify", REVERT = "revert", MEMORY = "memory", REMOTE = "remote",
-            PLAYING = "playing", UPDATE = "update", INSTALL = "install", GRANT_WATCH = "watchGrant",
+            PLAYING = "playing", GRANT_WATCH = "watchGrant",
             REVOKE_WATCH = "watchRevoke", POWER_ON = "powerOn";   // job ids come from these names: keep them apart
 
     @Override public boolean onStartJob(JobParameters params) {
@@ -32,7 +32,7 @@ public class ModeJob extends JobService {
         final Context app = getApplicationContext();
         new Thread(() -> {
             if (APPLY.equals(action)) noteStarted(app, at);
-            boolean again = false;   // the week's update check failed: the system tries again soon (Updates.schedule)
+            boolean again = false;
             try {
                 switch (action) {
                     case APPLY: HomeMode.applyNow(app, mode); break;
@@ -41,8 +41,6 @@ public class ModeJob extends JobService {
                     case MEMORY: HomeMode.measureMemoryNow(app, mode); break;
                     case REMOTE: HomeMode.ensureRemoteServiceNow(app); break;
                     case PLAYING: HomeMode.nowPlayingAccessNow(app); break;
-                    case UPDATE: again = Updates.check(app) && params.getJobId() == Updates.JOB; break;   // the week's, or OK
-                    case INSTALL: Updates.install(app); break;
                     case GRANT_WATCH: HomeMode.grantWatchNow(app); break;
                     case REVOKE_WATCH: HomeMode.revokeWatchNow(app); break;
                     case POWER_ON: HomeMode.powerOnNow(app); break;

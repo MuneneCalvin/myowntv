@@ -813,6 +813,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             sceneLayer.release();
             sceneLayer = null;
             sceneGlassPx = null;
+            sceneW = sceneH = 0;   // the new layer is sized again (its picture is drawn into an empty rectangle until it is)
         }
         sky.invalidate();
         heroDirty = true;

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MyOwnTV</string>
-    <string name="remote_key_service">Lets the app buttons on the remote (Netflix, YouTube, Prime Video, TCL Channel) open the apps you picked in MyOwnTV, from any app. It only reads those buttons.</string>
+    <string name="remote_key_service">Brings MyOwnTV back when you press Home or wake the TV, and lets the app buttons on the remote (Netflix, YouTube, Prime Video) open the apps you picked, from any app. It only reads the remote\'s keys.</string>
 </resources>

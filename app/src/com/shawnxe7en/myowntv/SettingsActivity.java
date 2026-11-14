@@ -966,8 +966,8 @@ public class SettingsActivity extends Activity {
          *  the keys (the last rows). */
         private static final int CLOCK_ROW = 3, TOP_ROW = 5, PICKS_ROW = 6, WATCH_ROW = 7,
                 ANDROID_APPS_ROW = 8, STATUS_ICONS_ROW = 9, POWER_ON_ROW = 10,
-                LIVE_BUTTON_ROW = 11, WEATHER_ROW = 12, FX_ROW = 13, CITY_ROW = 14, FORECAST_ROW = 15, PLAYING_ROW = 16,
-                SCENES_ROW = 17, QUOTES_ROW = 18, COIN_ROWS = QUOTES_ROW + 1;
+                LIVE_BUTTON_ROW = 11, WEATHER_ROW = 12, FX_ROW = 13, HOLIDAY_ROW = 14, CITY_ROW = 15, FORECAST_ROW = 16, PLAYING_ROW = 17,
+                SCENES_ROW = 18, QUOTES_ROW = 19, COIN_ROWS = QUOTES_ROW + 1;
         /** Home Settings rows on screen at once (what fits above the hints at 1080p); a longer list scrolls. */
         private static final int SETTINGS_VISIBLE = 10;
 
@@ -991,6 +991,7 @@ public class SettingsActivity extends Activity {
             l.add(Ui.tr("Live TV button"));
             l.add(Ui.tr("Weather widget"));
             l.add(Ui.tr("Weather effects"));
+            l.add(Ui.tr("Holiday decorations"));
             l.add(Ui.tr("City"));
             l.add(Ui.tr("Forecast"));
             l.add(Ui.tr("Now Playing widget"));
@@ -1090,6 +1091,7 @@ public class SettingsActivity extends Activity {
             v[STATUS_ICONS_ROW] = onOff(Prefs.statusIcons());
             v[WEATHER_ROW] = onOff(Prefs.weather());
             v[FX_ROW] = onOff(Prefs.weatherFx());
+            v[HOLIDAY_ROW] = onOff(Prefs.holidays());
             v[CITY_ROW] = !cityStatus.isEmpty() ? cityStatus : Prefs.city().isEmpty() ? "—" : Prefs.city();
             v[FORECAST_ROW] = Prefs.forecast().equals("days") ? Ui.tr("Next days") : Ui.tr("Next hours");
             v[PLAYING_ROW] = onOff(Prefs.nowPlaying());
@@ -1480,6 +1482,7 @@ public class SettingsActivity extends Activity {
                 case SCENES_ROW: Prefs.setScenes(!Prefs.scenes()); break;
                 case WEATHER_ROW: Prefs.setWeather(!Prefs.weather()); break;
                 case FX_ROW: Prefs.setWeatherFx(!Prefs.weatherFx()); break;
+                case HOLIDAY_ROW: Prefs.setHolidays(!Prefs.holidays()); break;
                 case CITY_ROW: return;
                 case FORECAST_ROW:   // both are in memory: nothing to fetch
                     Prefs.setForecast(Prefs.forecast().equals("days") ? "hours" : "days");

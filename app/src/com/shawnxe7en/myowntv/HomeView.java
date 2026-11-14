@@ -416,7 +416,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         private final float[] px = new float[WeatherFx.MAX_PARTICLES], py = new float[WeatherFx.MAX_PARTICLES],
                 pv = new float[WeatherFx.MAX_PARTICLES], pts = new float[WeatherFx.MAX_PARTICLES * 4];
         private final java.util.Random rnd = new java.util.Random();
-        private int kind, count;
+        private int kind, count, holiday;
+        private HolidayArt art;
+        private long holidayDay = -1;
         private float dark;
         private long lastMs, flashAt = -1;
         private float flashLevel;
@@ -431,6 +433,13 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
         /** Reads the weather (and the setting); true while something is drawn and so a frame is due. */
         boolean update() {
+            long today = System.currentTimeMillis() / 3_600_000L;   // looked up again each hour
+            if (today != holidayDay) {
+                holidayDay = today;
+                holiday = Holidays.on(java.time.LocalDate.now());
+                art = holiday == Holidays.NONE ? null : new HolidayArt(holiday);
+            }
+            boolean decor = Prefs.holidays() && scenesOn() && sceneShown && art != null;
             int code = Prefs.weatherFx() && scenesOn() && sceneShown && data.weather != null ? data.weather.code : -1;
             int k = WeatherFx.kind(code);
             if (k != kind || WeatherFx.particles(k, WeatherFx.intensity(code)) != count) {
@@ -443,9 +452,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                     py[i] = rnd.nextFloat();
                     pv[i] = 0.6f + rnd.nextFloat() * 0.8f;
                 }
-                setVisibility(k == WeatherFx.NONE ? GONE : VISIBLE);
             }
-            return kind != WeatherFx.NONE;
+            setVisibility(kind != WeatherFx.NONE || decor ? VISIBLE : GONE);
+            return kind != WeatherFx.NONE || decor;
         }
 
         @Override protected void onDraw(Canvas c) {
@@ -455,6 +464,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             lastMs = now;
             dim.setAlpha(Math.round(255 * dark));
             c.drawRect(0, 0, w, h, dim);
+            if (art != null && Prefs.holidays()) art.draw(c, w, h, now, dt);
             if (count == 0) return;
             float k = w / 1920f;
             if (kind == WeatherFx.SNOW) {

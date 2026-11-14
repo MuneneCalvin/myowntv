@@ -381,6 +381,8 @@ final class Prefs {
     }
 
 
+    static boolean holidays() { return sp().getBoolean("holidays", true); }
+    static void setHolidays(boolean on) { put("holidays", on); }
     static boolean weatherFx() { return sp().getBoolean("weatherFx", true); }
     static void setWeatherFx(boolean on) { put("weatherFx", on); }
     static boolean quotes() { return sp().getBoolean("quotes", Config.SHOW_CRYPTO); }

@@ -29,6 +29,7 @@ final class SceneLayer {
     private static final class Entry {
         final int index;
         Bitmap photo, glass, cutout;
+        boolean quick;   // a small stand-in photo, shown until the full scene has loaded
         int[] glassPx;   // the glass copy as GW x GH pixels (software), for the shelf's glass
 
         Entry(int index) {
@@ -143,7 +144,21 @@ final class SceneLayer {
         if (loading >= 0) return;
         loading = index;
         final int gen = generation;
+        final boolean first = cur == null;
         worker.execute(() -> {
+            if (first) {   // a small decode is quick: the screen has a picture while the full one loads
+                Entry q = new Entry(index);
+                q.quick = true;
+                q.photo = decode(names[index] + ".jpg", 8 * sample);
+                main.post(() -> {
+                    if (q.photo != null && gen == generation && cur == null) {
+                        cur = q;
+                        fresh = true;
+                    } else {
+                        q.release();
+                    }
+                });
+            }
             Entry e = load(index);
             main.post(() -> {
                 if (gen != generation) {
@@ -154,7 +169,8 @@ final class SceneLayer {
                 fresh = true;
                 if (e == null) {
                     failed[index] = true;
-                } else if (cur == null) {
+                } else if (cur == null || cur.quick && cur.index == index) {
+                    if (cur != null) cur.release();
                     cur = e;
                 } else {
                     if (next != null) next.release();

@@ -17,7 +17,21 @@ public class RemoteKeyService extends AccessibilityService {
     private long lastHome;
 
     @Override protected boolean onKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_HOME && HomeMode.watching(this)) {
+            // Taken here the Home key never reaches Google TV's home, so nothing flashes before ours.
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                lastHome = SystemClock.uptimeMillis();
+                AppLog.w("home key -> MyOwnTV");
+                openHome();
+            }
+            return true;
+        }
         return RemoteKeys.onKey(this, event);
+    }
+
+    private void openHome() {
+        startActivity(new Intent(this, HomeActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_CLEAR_TOP));
     }
 
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -29,8 +43,7 @@ public class RemoteKeyService extends AccessibilityService {
         long now = SystemClock.uptimeMillis();
         if (now - lastHome < 700 || !HomeMode.watching(this)) return;
         lastHome = now;
-        startActivity(new Intent(this, HomeActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_CLEAR_TOP));
+        openHome();
     }
 
     @Override public void onInterrupt() {}

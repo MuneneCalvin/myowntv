@@ -58,7 +58,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         running = true;
         startedAt = SystemClock.uptimeMillis();
         lastFrame = 0;
-        scenes = Prefs.scenes() && glassClock.available() ? new SceneLayer(getContext()) : null;
+        scenes = Prefs.scenes() ? new SceneLayer(getContext()) : null;
         sceneShown = false;
         glassClock.reset();
         data.addListener(this);

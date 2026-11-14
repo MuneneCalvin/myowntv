@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.1
+- Fix: wallpapers were black on Android 12 and older TVs. They now show there too, with a flat white clock in place of the glass one (which needs Android 13 or newer).
+
 ## 1.0.0
 First release.
 - Scene wallpapers (13, each on or off, 5 minutes to 3 hours per picture) with a liquid-glass clock.

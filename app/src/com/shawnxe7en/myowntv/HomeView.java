@@ -1605,7 +1605,6 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private boolean scenesOn() {
         if (!Prefs.scenes()) return false;   // under the clock: nothing, the Keep watching row, or the TMDB picks row
         if (glassClock == null) glassClock = new GlassClock(getContext());
-        if (!glassClock.available()) return false;
         if (sceneLayer == null) sceneLayer = new SceneLayer(getContext());
         return true;
     }
@@ -1625,14 +1624,32 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             scene.setGlassImage(glassPx);
             platter.invalidate();
         }
-        glassClock.update(clockText, clockPaint, w, h, k, () -> sky.invalidate());
-        glassClock.draw(c, sceneLayer.glassCopy(), w, k);
+        if (glassClock.available()) {
+            glassClock.update(clockText, clockPaint, w, h, k, () -> sky.invalidate());
+            glassClock.draw(c, sceneLayer.glassCopy(), w, k);
+        } else {   // Android 12 and older have no AGSL: the same clock, flat and white
+            drawFlatSceneClock(c);
+        }
         sceneLayer.drawForeground(c);
         if (sceneShade == null) sceneShade = new LinearGradient(0, h * 0.55f, 0, h, 0x00000000, 0x66000000, Shader.TileMode.CLAMP);
         fill.setShader(sceneShade);
         c.drawRect(0, h * 0.55f, w, h, fill);
         fill.setShader(null);
         return true;
+    }
+
+    private Paint flatClock;
+    private final Rect flatInk = new Rect();
+
+    /** The scene clock without the glass: white digits where the glass ones would be. */
+    private void drawFlatSceneClock(Canvas c) {
+        if (flatClock == null || flatClock.getTextSize() != GlassClock.SIZE * k) {
+            flatClock = new Paint(clockPaint);
+            flatClock.setTextSize(GlassClock.SIZE * k);
+            flatClock.setTextAlign(Paint.Align.LEFT);
+        }
+        flatClock.getTextBounds(clockText, 0, clockText.length(), flatInk);
+        c.drawText(clockText, w / 2f - flatInk.width() / 2f - flatInk.left, GlassClock.TOP * k - flatInk.top, flatClock);
     }
 
     /** Blends a color on top (the drawer's veil) as part of drawing the image, without another layer. */

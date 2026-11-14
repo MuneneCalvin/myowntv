@@ -8,13 +8,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- After the TV boots (and after a TV update), checks that MyOwnTV mode is still as you left it. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- The sleep timer's minutes left over any app (SleepOverlay), when picked; allowed through ADB, as Android TV
-         has no screen for it. -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <!-- The sleep timer on time: from Android 12, windows under 10 minutes stretch to 10. No prompt for either. -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- "Continue watching": what you left half-way in your apps, from Android TV's own Watch Next list. -->
     <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
     <!-- The Bluetooth status icon: whether headphones or a speaker are connected. Before Android 12 the permission is
@@ -223,25 +216,6 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/remote_key_service" />
-        </service>
-
-                        <!-- The sleep timer's minutes left over any app, while the timer runs. A process of its own: a foreground
-             service in :home would keep the whole home screen in memory under the app in front. -->
-        <service
-            android:name=".SleepOverlay"
-            android:process=":sleep"
-            android:exported="false" />
-
-        <!-- Lets the home screen and the screensaver read what apps are playing (their media sessions); it unbinds itself
-             at once, so no process stays up for it. -->
-        <service
-            android:name=".NowPlaying"
-            android:exported="true"
-            android:label="MyOwnTV"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
         </service>
 
         <receiver

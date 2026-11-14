@@ -257,7 +257,7 @@ final class Ui {
         applyLanguage(Prefs.language());
     }
 
-    /** The same for a setting ("auto", "fr"…) given by the caller (SleepOverlay gets it in its Intent). */
+    /** The same for a setting ("auto", "fr"…) given by the caller. */
     static synchronized void applyLanguage(String setting) {
         String lang = resolve(setting);
         Map<String, String> cat = Collections.emptyMap();

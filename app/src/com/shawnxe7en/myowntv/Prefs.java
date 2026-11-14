@@ -374,13 +374,6 @@ final class Prefs {
     static String forecast() { return "days".equals(sp().getString("forecast", "hours")) ? "days" : "hours"; }
     static void setForecast(String v) { put("forecast", v); }
 
-    static boolean nowPlaying() { return sp().getBoolean("nowPlaying", false); }
-    static void setNowPlaying(boolean on) {   // committed: the main process reads it right away to allow the listener
-        sp().edit().putBoolean("nowPlaying", on).commit();
-        version++;
-    }
-
-
     static boolean holidays() { return sp().getBoolean("holidays", true); }
     static void setHolidays(boolean on) { put("holidays", on); }
     static boolean weatherFx() { return sp().getBoolean("weatherFx", true); }
@@ -439,29 +432,6 @@ final class Prefs {
     /** The shelf puts the app last opened from MyOwnTV first (Recent) instead of keeping the order set in Settings > Shelf. */
     static boolean shelfRecent() { return sp().getBoolean("shelfRecent", false); }
     static void setShelfRecent(boolean on) { put("shelfRecent", on); }
-
-    // MARK: - Sleep timer
-
-    /** When the sleep timer ends (System.currentTimeMillis); SleepTimer's alarm says whether it's still on. */
-    static long sleepAt() { return sp().getLong("sleepAt", 0); }
-
-    /** When it was set, in uptimeMillis (dumpsys power's clock): a TV turned off since ended it (SleepTimer.check). */
-    static long sleepFrom() { return sp().getLong("sleepFrom", 0); }
-
-    // No version++ for the sleep settings: HomeActivity would rebuild the home screen and fetch the weather again for a
-    // timer; HomeView reads what it needs on resume and every 15 s (updateSleep).
-    static void setSleepAt(long at, long from) {
-        sp().edit().putLong("sleepAt", at).putLong("sleepFrom", from).apply();
-    }
-
-    /** The sleep timer's minutes left on screen: over any app (SleepOverlay), or where this TV can't, on the home screen. */
-    static boolean sleepShown() { return sp().getBoolean("sleepShown", true); }
-    static void setSleepShown(boolean on) { sp().edit().putBoolean("sleepShown", on).apply(); }
-
-    /** Where it shows over other apps: SleepOverlay's places, the top center first. */
-    static int sleepPlace() { return sp().getInt("sleepPlace", 0); }
-
-    static void setSleepPlace(int place) { sp().edit().putInt("sleepPlace", place).apply(); }
 
     // MARK: - Top buttons
 

@@ -5,8 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 
 /**
- * System notices for the main process: the TV booted, this app was updated, the sleep timer ended, or the installer
- * answered about an update (Updates). Not exported.
+ * System notices for the main process: the TV booted, or this app was updated. Not exported.
  */
 public class HomeReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context, Intent intent) {
@@ -16,21 +15,6 @@ public class HomeReceiver extends BroadcastReceiver {
         } else if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             HomeMode.verify(context);   // app updated: complete MyOwnTV mode if something is missing
             HomeMode.ensureRemoteService(context, 3_000);
-        } else if (SleepTimer.ACTION.equals(action)) {
-            long setAt = intent.getLongExtra("setAt", 0);
-            later(() -> SleepTimer.fire(context, setAt));   // ADB is network
         }
-    }
-
-    /** Off the main thread (Updates may wait for a check under way), with the notice held open until it's done. */
-    private void later(Runnable work) {
-        PendingResult result = goAsync();
-        new Thread(() -> {
-            try {
-                work.run();
-            } finally {
-                result.finish();
-            }
-        }).start();
     }
 }

@@ -481,7 +481,7 @@ final class HomeData {
         return isNight(Prefs.theme(), now, weather.sunrise, weather.sunset);
     }
 
-    /** The same from what it depends on (SleepOverlay gets these in its Intent). */
+    /** The same from what it depends on. */
     static boolean isNight(String theme, long now, long sunrise, long sunset) {
         if (theme.equals("dark")) return true;
         if (theme.equals("light")) return false;

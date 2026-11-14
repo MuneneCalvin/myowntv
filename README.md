@@ -7,6 +7,8 @@ liquid-glass clock, and a dark glass dock whose icons light up in colour when fo
 Built for and tested on a Skyworth Google TV (Android TV 14, 1.8 GB RAM). Google TV's own home and setup wizard stay
 installed, so nothing is disabled or removed.
 
+![MyOwnTV home screen](docs/screens/home.jpg)
+
 ## What you get
 - **Scenes:** 13 wallpapers (choose which are on, and 5 minutes to 3 hours per picture) behind a glass clock, the date and weather.
 - **Weather and holidays:** the wallpaper darkens and rains or snows with the weather outside; New Year, Valentine's Day,

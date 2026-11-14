@@ -1,7 +1,12 @@
 package com.shawnxe7en.myowntv;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.accessibility.AccessibilityEvent;
@@ -14,6 +19,9 @@ import android.view.accessibility.AccessibilityEvent;
  * first, for a moment.
  */
 public class RemoteKeyService extends AccessibilityService {
+    private static final long BOOT_MS = 3 * 60_000;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private BroadcastReceiver wake;
     private long lastHome;
 
     @Override protected boolean onKeyEvent(KeyEvent event) {
@@ -27,6 +35,32 @@ public class RemoteKeyService extends AccessibilityService {
             return true;
         }
         return RemoteKeys.onKey(this, event);
+    }
+
+    /** Just after boot the TV's own home is already up: cover it as soon as this service is, not at its next event. */
+    @Override protected void onServiceConnected() {
+        if (wake == null) {
+            wake = new BroadcastReceiver() {
+                @Override public void onReceive(Context c, Intent i) {
+                    if (!HomeMode.watching(c)) return;
+                    // Waking from standby, Google TV's home puts itself in front (a second time, a moment later).
+                    AppLog.w("screen on -> MyOwnTV");
+                    openHome();
+                    handler.postDelayed(RemoteKeyService.this::openHome, 1200);
+                }
+            };
+            registerReceiver(wake, new IntentFilter(Intent.ACTION_SCREEN_ON));
+        }
+        if (SystemClock.elapsedRealtime() < BOOT_MS && HomeMode.watching(this)) {
+            AppLog.w("boot -> MyOwnTV");
+            openHome();
+        }
+    }
+
+    @Override public void onDestroy() {
+        if (wake != null) unregisterReceiver(wake);
+        wake = null;
+        super.onDestroy();
     }
 
     private void openHome() {

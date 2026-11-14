@@ -139,6 +139,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private int sceneW, sceneH;
     private int[] sceneGlassPx;
     private boolean relayoutLight;
+    private int fxTick;
     private boolean sceneShown;   // a scene is on the sky layer: the top shows the centered date and weather line only
     private LinearGradient sceneShade;
     private Paint sceneDate, sceneWeather;
@@ -170,6 +171,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         @Override public void hold(int id) { if (sheetOpen) a11yHold(); else if (canReorder()) startReorder(); else showMenu(); }
     });
     private final RectF a11yRect = new RectF();
+    private final FxLayer fx;
     private final Layer sky, heroLayer, status, platter, tiles, drawerLayer, sheetLayer, toastLayer, menuLayer;
     private int zone = Z_SHELF;
 
@@ -407,6 +409,95 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     /** One layer of the screen. It draws in full-screen coordinates: the glass needs each pixel's real position. */
+
+    /** Rain, snow or a storm over the scene, and a dimmer: what the weather outside asks for (WeatherFx). Redrawn at 30 fps. */
+    private final class FxLayer extends View {
+        private final Paint dim = new Paint(), line = new Paint(Paint.ANTI_ALIAS_FLAG), flash = new Paint();
+        private final float[] px = new float[WeatherFx.MAX_PARTICLES], py = new float[WeatherFx.MAX_PARTICLES],
+                pv = new float[WeatherFx.MAX_PARTICLES], pts = new float[WeatherFx.MAX_PARTICLES * 4];
+        private final java.util.Random rnd = new java.util.Random();
+        private int kind, count;
+        private float dark;
+        private long lastMs, flashAt = -1;
+        private float flashLevel;
+
+        FxLayer(Context c) {
+            super(c);
+            dim.setColor(0xFF000000);
+            line.setStrokeCap(Paint.Cap.ROUND);
+            flash.setColor(0xFFFFFFFF);
+            setVisibility(GONE);
+        }
+
+        /** Reads the weather (and the setting); true while something is drawn and so a frame is due. */
+        boolean update() {
+            int code = Prefs.weatherFx() && scenesOn() && sceneShown && data.weather != null ? data.weather.code : -1;
+            int k = WeatherFx.kind(code);
+            if (k != kind || WeatherFx.particles(k, WeatherFx.intensity(code)) != count) {
+                kind = k;
+                float in = WeatherFx.intensity(code);
+                count = WeatherFx.particles(k, in);
+                dark = WeatherFx.darken(k, in);
+                for (int i = 0; i < count; i++) {
+                    px[i] = rnd.nextFloat();
+                    py[i] = rnd.nextFloat();
+                    pv[i] = 0.6f + rnd.nextFloat() * 0.8f;
+                }
+                setVisibility(k == WeatherFx.NONE ? GONE : VISIBLE);
+            }
+            return kind != WeatherFx.NONE;
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            int w = getWidth(), h = getHeight();
+            long now = SystemClock.uptimeMillis();
+            float dt = lastMs == 0 ? 0.033f : Math.min(0.1f, (now - lastMs) / 1000f);
+            lastMs = now;
+            dim.setAlpha(Math.round(255 * dark));
+            c.drawRect(0, 0, w, h, dim);
+            if (count == 0) return;
+            float k = w / 1920f;
+            if (kind == WeatherFx.SNOW) {
+                line.setColor(0xCCFFFFFF);
+                line.setStrokeWidth(5 * k);
+                for (int i = 0; i < count; i++) {
+                    py[i] += dt * 0.09f * pv[i];
+                    px[i] += dt * 0.012f * (float) Math.sin(now / 900.0 + i);
+                    if (py[i] > 1) { py[i] -= 1; px[i] = rnd.nextFloat(); }
+                    pts[2 * i] = (px[i] % 1) * w;
+                    pts[2 * i + 1] = py[i] * h;
+                }
+                c.drawPoints(pts, 0, count * 2, line);
+            } else {
+                line.setColor(0x88DCE8F5);
+                line.setStrokeWidth(2.2f * k);
+                float len = 38 * k;
+                for (int i = 0; i < count; i++) {
+                    py[i] += dt * 1.1f * pv[i];
+                    if (py[i] > 1.05f) { py[i] -= 1.1f; px[i] = rnd.nextFloat(); }
+                    float x = px[i] * w, y = py[i] * h;
+                    pts[4 * i] = x;
+                    pts[4 * i + 1] = y;
+                    pts[4 * i + 2] = x - len * 0.18f;
+                    pts[4 * i + 3] = y + len;
+                }
+                c.drawLines(pts, 0, count * 4, line);
+            }
+            if (kind == WeatherFx.STORM) {   // a flash every 6 to 14 seconds, gone in a quarter of a second
+                if (flashAt < 0) flashAt = now + 6000 + rnd.nextInt(8000);
+                if (now >= flashAt) {
+                    flashLevel = 0.35f;
+                    flashAt = now + 6000 + rnd.nextInt(8000);
+                }
+                if (flashLevel > 0.01f) {
+                    flash.setAlpha(Math.round(255 * flashLevel));
+                    c.drawRect(0, 0, w, h, flash);
+                    flashLevel -= dt * 1.4f;
+                }
+            }
+        }
+    }
+
     private final class Layer extends View {
         private final int kind;
 
@@ -644,6 +735,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         setFocusable(true);
         sky = new Layer(a, SKY);
+        fx = new FxLayer(a);
         heroLayer = new Layer(a, HERO);
         status = new Layer(a, STATUS);
         platter = new Layer(a, PLATTER);
@@ -657,7 +749,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         // frame cost more than drawing straight to the screen (measured: focus on the picks 33 → 12 ms a frame, the
         // drawer 19 → 17 ms).
         for (View v : new View[] {heroLayer, status, platter, tiles, drawerLayer, sheetLayer}) v.setLayerType(Ui.LEGACY ? LAYER_TYPE_NONE : LAYER_TYPE_HARDWARE, null);
-        for (View v : new View[] {sky, heroLayer, status, platter, tiles, drawerLayer, sheetLayer, menuLayer, toastLayer}) {
+        for (View v : new View[] {sky, fx, heroLayer, status, platter, tiles, drawerLayer, sheetLayer, menuLayer, toastLayer}) {
             v.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);   // TalkBack reads the items (Spoken)
             addView(v);
         }
@@ -865,6 +957,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         int width = MeasureSpec.getSize(widthSpec), height = MeasureSpec.getSize(heightSpec);
         float kk = width / 1920f;
         measure(sky, width, height);
+        measure(fx, width, height);
         measure(heroLayer, width, Math.round(790 * kk));
         // The icons at the top left need the whole width; with them off the layer keeps its old size (the corner buttons
         // only), so the GPU still composites a small layer.
@@ -889,6 +982,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         int width = r - l, height = b - t;
         float kk = width / 1920f;
         sky.layout(0, 0, width, height);
+        fx.layout(0, 0, width, height);
         place(heroLayer, 0, 0);
         place(status, statusWide ? 0 : width - status.getMeasuredWidth(), 0);
         place(platter, 0, Math.round(750 * kk));
@@ -1066,6 +1160,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (drawerMoving || bgFading) sky.invalidate();
         boolean sceneOn = scenesOn();
         if (sceneOn && sceneLayer.needsFrame(up)) sky.invalidate();
+        boolean fxOn = fx.update();
+        // Every third frame (20 fps: this GPU needs ~16 ms for any frame), and not while a focus move or the drawer is
+        // animating: the rain waits, so it never takes frames from the remote.
+        boolean moving = tilesMoving || statusMoving || heroMoving || drawerItemsMoving || gridMoving || drawerMoving
+                || menuMoving || sheetMoving || sheetOpen || drawerOpen;
+        if (fxOn && !moving && ++fxTick % 3 == 0) fx.invalidate();
         if (bgFading || (drawerWasMoving && !drawerMoving)) platter.invalidate();
         drawerWasMoving = drawerMoving;
         tilesDirty = statusDirty = heroDirty = drawerDirty = gridDirty = motionDirty = false;
@@ -1083,7 +1183,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         // Busy: something is moving, or the sheet or the drawer is open.
         boolean busy = tilesMoving || statusMoving || heroMoving || drawerItemsMoving || gridMoving || drawerMoving
                 || menuMoving || sheetMoving || toastFading || heroFading || bgFading || nightMoving || tintMoving || sheetOpen
-                || (sceneOn && sceneLayer.fading(up))
+                || (sceneOn && sceneLayer.fading(up)) || fxOn
                 || sheet.value > 0.001f || drawerOpen || drawer.value > 0.001f || toast != null || !toasts.isEmpty();
         idle = !busy;
         if (busy) Choreographer.getInstance().postFrameCallback(this);

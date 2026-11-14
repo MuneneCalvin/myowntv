@@ -381,6 +381,8 @@ final class Prefs {
     }
 
 
+    static boolean weatherFx() { return sp().getBoolean("weatherFx", true); }
+    static void setWeatherFx(boolean on) { put("weatherFx", on); }
     static boolean quotes() { return sp().getBoolean("quotes", Config.SHOW_CRYPTO); }
     static void setQuotes(boolean on) { put("quotes", on); }
 

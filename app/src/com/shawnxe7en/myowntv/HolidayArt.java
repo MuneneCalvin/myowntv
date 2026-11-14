@@ -52,7 +52,7 @@ final class HolidayArt {
             case Holidays.VALENTINE: wash(c, w, h, 0x14FF4F7B); hearts(c, w, h, k, dt, now); break;
             case Holidays.EASTER: wash(c, w, h, 0x12BFE8B0); eggs(c, w, h, k, dt, now); break;
             case Holidays.HALLOWEEN: wash(c, w, h, 0x26FF6A00); bats(c, w, h, k, dt, now); break;
-            case Holidays.CHRISTMAS: lights(c, w, k, now); fall(c, w, h, k, dt, now, new int[] {0xDDFFFFFF}, 6 * k, 0.09f, 26); break;
+            case Holidays.CHRISTMAS: lights(c, w, k, now); fall(c, w, h, k, dt, now, new int[] {0xDDFFFFFF}, 10 * k, 0.09f, 26); break;
             case Holidays.RAMADAN: wash(c, w, h, 0x24102A6B); moon(c, w, h, k, now); break;
             case Holidays.DIWALI: wash(c, w, h, 0x1AFF9A1F); sparks(c, w, h, k, dt, now); break;
             default: break;
@@ -126,21 +126,21 @@ final class HolidayArt {
     private void lights(Canvas c, int w, float k, long now) {
         int n = 26;
         paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(2.5f * k);
-        paint.setColor(0xAA222222);
+        paint.setStrokeWidth(3.5f * k);
+        paint.setColor(0xCC1A1A1A);
         path.rewind();
-        path.moveTo(0, 8 * k);
-        for (int i = 1; i <= n; i++) path.quadTo((i - 0.5f) * w / n, 46 * k, i * (float) w / n, 8 * k);
+        path.moveTo(0, 10 * k);
+        for (int i = 1; i <= n; i++) path.quadTo((i - 0.5f) * w / n, 62 * k, i * (float) w / n, 10 * k);
         c.drawPath(path, paint);
         paint.setStyle(Paint.Style.FILL);
         for (int i = 0; i < n; i++) {
-            float cx = (i + 0.5f) * w / n, cy = 8 * k + 19 * k;
+            float cx = (i + 0.5f) * w / n, cy = 10 * k + 26 * k;
             int col = BULBS[i % BULBS.length];
             float glow = 0.55f + 0.45f * (float) Math.sin(now / 500.0 + i * 1.3);
-            paint.setColor((col & 0x00FFFFFF) | (Math.round(70 * glow) << 24));
-            c.drawCircle(cx, cy, 15 * k, paint);
+            paint.setColor((col & 0x00FFFFFF) | (Math.round(90 * glow) << 24));
+            c.drawCircle(cx, cy, 24 * k, paint);
             paint.setColor((col & 0x00FFFFFF) | (Math.round(255 * (0.7f + 0.3f * glow)) << 24));
-            c.drawCircle(cx, cy, 7 * k, paint);
+            c.drawCircle(cx, cy, 11 * k, paint);
         }
     }
 

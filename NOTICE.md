@@ -2,7 +2,7 @@
 
 This project is a fork of **Free My TV** (https://github.com/simbasjungles/free-my-tv), MIT licence,
 Copyright (c) 2026 Free My TV contributors. The original licence text is in `LICENSE` and must stay with
-any copy of this code. The upstream author's developer notes are kept in `docs/UPSTREAM-NOTES.md` for reference.
+any copy of this code.
 
 Design values, five scene images and an algorithm come from **Couch TV** (https://github.com/Seagey/couch-tv),
 MIT licence, Copyright (c) 2026 Seagey: the colours, glass and clock look, the five generated scenes (credited there as

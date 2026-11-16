@@ -171,7 +171,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             dirty = true;
             invalidate();
         });
-        glassClock.draw(c, scenes.glassCopy(), w, k);
+        glassClock.draw(c, scenes.glassCopy(), w, k, up);
         scenes.drawForeground(c);
         HomeData.Weather wx = data.weather;
         if (fx.update(wx != null && !Double.isNaN(wx.temp) ? wx.code : -1, Prefs.weatherFx(), Prefs.holidays())) fx.draw(c, w, h, up);
@@ -216,7 +216,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         }
         if (sayings == null) sayings = new Sayings(all, rnd);   // kept across start/stop: a restart never repeats the last quote
         saying = sayings.next();
-        sayingChangeAt = SystemClock.uptimeMillis() + Sayings.nextDelayMs(rnd);
+        sayingChangeAt = SystemClock.uptimeMillis() + Sayings.INTERVAL_MS;
         sayingFadeFrom = -1;
         sayingSwapped = false;
         layoutSaying();
@@ -239,7 +239,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         }
     }
 
-    /** The quote and its author near the bottom edge; every 1 to 5 minutes it fades out and the next fades in. */
+    /** The quote and its author near the bottom edge; every 2 minutes it fades out and the next fades in. */
     private void drawSaying(Canvas c, long up) {
         if (!Prefs.sayings() || saying == null || sayingLines.isEmpty() || sayPaint == null) return;
         float alpha = 1;
@@ -262,7 +262,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
                     alpha = (e - FADE_MS) / (float) FADE_MS;
                 } else {
                     sayingFadeFrom = -1;
-                    sayingChangeAt = up + Sayings.nextDelayMs(rnd);
+                    sayingChangeAt = up + Sayings.INTERVAL_MS;
                 }
             }
         }

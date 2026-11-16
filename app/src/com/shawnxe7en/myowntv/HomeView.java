@@ -139,7 +139,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private int sceneW, sceneH;
     private int[] sceneGlassPx;
     private boolean relayoutLight;
-    private int fxTick;
+    private int fxTick, colonTick;
+    private final Rect colonRect = new Rect();   // where the clock's colon beats (glassClock.colonBounds)
     private boolean sceneShown;   // a scene is on the sky layer: the top shows the centered date and weather line only
     private LinearGradient sceneShade;
     private Paint sceneDate, sceneWeather;
@@ -1106,6 +1107,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         boolean moving = tilesMoving || statusMoving || heroMoving || drawerItemsMoving || gridMoving || drawerMoving
                 || menuMoving || sheetMoving || sheetOpen || drawerOpen;
         if (fxOn && !moving && ++fxTick % 3 == 0) fx.invalidate();
+        // The glass clock's colon beats like a heart: only its own small patch of the sky is drawn again, 20 times a second.
+        boolean colonOn = sceneOn && sceneShown && !moving && !menuOpen && glassClock != null && glassClock.colonBounds(colonRect, k);
+        if (colonOn && ++colonTick % 3 == 0) sky.invalidate(colonRect);
         if (bgFading || (drawerWasMoving && !drawerMoving)) platter.invalidate();
         drawerWasMoving = drawerMoving;
         tilesDirty = statusDirty = heroDirty = drawerDirty = gridDirty = motionDirty = false;
@@ -1123,7 +1127,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         // Busy: something is moving, or the sheet or the drawer is open.
         boolean busy = tilesMoving || statusMoving || heroMoving || drawerItemsMoving || gridMoving || drawerMoving
                 || menuMoving || sheetMoving || toastFading || heroFading || bgFading || nightMoving || tintMoving || sheetOpen
-                || (sceneOn && sceneLayer.fading(up)) || fxOn
+                || (sceneOn && sceneLayer.fading(up)) || fxOn || colonOn
                 || sheet.value > 0.001f || drawerOpen || drawer.value > 0.001f || toast != null || !toasts.isEmpty();
         idle = !busy;
         if (busy) Choreographer.getInstance().postFrameCallback(this);
@@ -1567,7 +1571,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         if (glassClock.available()) {
             glassClock.update(clockText, clockPaint, w, h, k, () -> sky.invalidate());
-            glassClock.draw(c, sceneLayer.glassCopy(), w, k);
+            glassClock.draw(c, sceneLayer.glassCopy(), w, k, SystemClock.uptimeMillis());
         } else {   // Android 12 and older have no AGSL: the same clock, flat and white
             drawFlatSceneClock(c);
         }

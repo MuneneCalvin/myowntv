@@ -27,7 +27,7 @@ final class GlassClock {
     private final Paint paint = new Paint();
     private final Paint shadowPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
     private RuntimeShader shader;
-    private GlassDigits.Glass glass;
+    private GlassDigits.Glass glass, colon, bound;   // the digits, the colon apart from them, and what the shader's inputs hold now
     private String builtFor = "", building = "";
     private Bitmap boundCopy;
     private int generation;
@@ -65,28 +65,52 @@ final class GlassClock {
         final float right = w / 2f + ink.width() / 2f, top = TOP * k;
         final int gen = generation;
         worker.execute(() -> {
-            GlassDigits.Glass g = GlassDigits.makeGlass(text, p, right, top, k);
+            GlassDigits.Glass[] parts = GlassDigits.makeParts(text, p, right, top, k);
             main.post(() -> {
                 if (gen != generation) return;
-                glass = g;
+                for (GlassDigits.Glass part : parts) {
+                    if (part == null) continue;
+                    part.slopeShader = GlassDigits.nearest(part.slope);
+                    part.coverShader = GlassDigits.nearest(part.cover);
+                }
+                glass = parts[0];
+                colon = parts[1];
+                bound = null;
                 builtFor = text;
                 building = "";
-                shader.setInputShader("slope", GlassDigits.nearest(g.slope));
-                shader.setInputShader("cover", GlassDigits.nearest(g.cover));
                 ready.run();
             });
         });
     }
 
-    /** The shadow and the glass digits over what is drawn so far; `copy` is the scene's blurred copy. */
-    void draw(Canvas c, Bitmap copy, int w, float k) {
-        GlassDigits.Glass g = glass;
+    /**
+     * The shadow and the glass digits over what is drawn so far; `copy` is the scene's blurred copy, `nowMs` the time for
+     * the colon's heartbeat (Heartbeat).
+     */
+    void draw(Canvas c, Bitmap copy, int w, float k, long nowMs) {
+        GlassDigits.Glass g = glass, cg = colon;
         if (g == null || shader == null || copy == null) return;
         if (copy != boundCopy) {
             boundCopy = copy;
             BitmapShader bs = new BitmapShader(copy, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
             shader.setInputShader("imageA", bs);
             shader.setInputShader("imageB", bs);
+        }
+        drawPart(c, g, g, copy, w, k);
+        if (cg == null) return;
+        float s = Heartbeat.scale(nowMs);
+        c.save();
+        c.scale(s, s, cg.x + cg.cover.getWidth() / 2f, cg.y + cg.cover.getHeight() / 2f);
+        drawPart(c, cg, g, copy, w, k);
+        c.restore();
+    }
+
+    /** One piece (the digits, or the colon), shaded as the digits are: `ref` is the digits' glass (the same ink height for both). */
+    private void drawPart(Canvas c, GlassDigits.Glass g, GlassDigits.Glass ref, Bitmap copy, int w, float k) {
+        if (bound != g) {
+            shader.setInputShader("slope", g.slopeShader);
+            shader.setInputShader("cover", g.coverShader);
+            bound = g;
         }
         shadowPaint.setAlpha(140);
         c.drawBitmap(g.shadow, g.x, g.y + 6 * k, shadowPaint);
@@ -95,18 +119,28 @@ final class GlassClock {
         shader.setFloatUniform("placeB", 0, 0, scale * Backdrop.PHOTO_FROST);
         shader.setFloatUniform("mixB", 0);
         shader.setFloatUniform("origin", g.x, g.y);
-        shader.setFloatUniform("ink", g.inkTop, g.inkHeight);
+        shader.setFloatUniform("ink", ref.y + ref.inkTop - g.y, ref.inkHeight);
         shader.setFloatUniform("refraction", 14 * k);
         shader.setFloatUniform("specular", 1);
         shader.setFloatUniform("alpha", 1);
         c.drawRect(g.x, g.y, g.x + g.cover.getWidth(), g.y + g.cover.getHeight(), paint);
     }
 
+    /** Where the colon can be drawn at its biggest (with its shadow); false until the digits are built. For redrawing just that. */
+    boolean colonBounds(Rect out, float k) {
+        GlassDigits.Glass cg = colon;
+        if (cg == null || glass == null) return false;
+        float hw = cg.cover.getWidth() / 2f * Heartbeat.MAX_SCALE + 4 * k, hh = cg.cover.getHeight() / 2f * Heartbeat.MAX_SCALE + 10 * k;
+        float cx = cg.x + cg.cover.getWidth() / 2f, cy = cg.y + cg.cover.getHeight() / 2f;
+        out.set((int) (cx - hw), (int) (cy - hh), (int) Math.ceil(cx + hw), (int) Math.ceil(cy + hh));
+        return true;
+    }
+
     /** The digits are stale (another minute, another size): forget them so update() rebuilds. */
     void reset() {
         generation++;
         builtFor = building = "";
-        glass = null;
+        glass = colon = bound = null;
         boundCopy = null;
     }
 

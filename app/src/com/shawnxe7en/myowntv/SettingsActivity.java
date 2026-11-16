@@ -162,6 +162,8 @@ public class SettingsActivity extends Activity {
         private static final int PICK_CITY = 0, PICK_LANGUAGE = -1;
         private final List<String[]> cities = new ArrayList<>();
         private String cityStatus = "";
+        private Bitmap logo;   // the app's logo on the left of every screen
+        private final Paint logoPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
         private JSONObject updates = new JSONObject();   // Updates' file (the main process writes it), read in poll
         private long checkAskedAt, installAskedAt;       // OK on Updates, on the wall clock as the file's "at"
         private String installed = "";                   // this app's version (an update starts a new process)
@@ -428,7 +430,7 @@ public class SettingsActivity extends Activity {
             h = height;
             k = w / 1920f;
             scene.setSize(w, h);
-            Symbols.warm(getContext(), "sparkles", 150 * k);
+            if (logo == null) logo = android.graphics.BitmapFactory.decodeResource(getResources(), R.drawable.logo);
             Symbols.warm(getContext(), "chevron_right", 22 * k);
             Symbols.warm(getContext(), "check", 26 * k);
             title = Ui.text(Ui.displaySemibold, 50 * k, 0xFFFFFFFF);
@@ -552,7 +554,11 @@ public class SettingsActivity extends Activity {
 
             // On the left: big symbol, title, description.
             float cx = 500 * k;
-            Symbols.draw(getContext(), c, "sparkles", cx, 400 * k, 150 * k, 0xEBFFFFFF);
+            if (logo != null) {   // the app's logo, big on the left
+                float half = 120 * k;
+                tmp.set(cx - half, 400 * k - half, cx + half, 400 * k + half);
+                c.drawBitmap(logo, null, tmp, logoPaint);
+            }
             c.drawText("MyOwnTV", cx, 612 * k, title);
             c.drawText(Ui.tr("Your TV's home screen and screensaver"), cx, 660 * k, subtitle);
             c.drawText(versionName(getContext()), cx, 704 * k, version);

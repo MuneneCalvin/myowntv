@@ -41,14 +41,7 @@ public class SayingsTest {
         }
         check(new Sayings(new ArrayList<>(), new Random(1)).next() == null, "empty list: null");
 
-        Random r = new Random(7);
-        Set<Long> delays = new HashSet<>();
-        for (int i = 0; i < 1000; i++) {
-            long d = Sayings.nextDelayMs(r);
-            check(d >= 60_000 && d <= 300_000, "delay within 1 to 5 minutes: " + d);
-            delays.add(d);
-        }
-        check(delays.size() > 10, "delay varies");
+        check(Sayings.INTERVAL_MS == 120_000, "a quote stays two minutes");
 
         List<Sayings.Saying> all = Sayings.parse(new String(Files.readAllBytes(Paths.get("app/assets/sayings.txt")), "UTF-8"));
         check(all.size() == 50, "sayings.txt has 50 entries, got " + all.size());

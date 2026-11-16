@@ -15,6 +15,7 @@ final class GlassDigits {
     static final class Glass {
         final String text;
         final Bitmap slope, cover, shadow;
+        BitmapShader slopeShader, coverShader;   // made once, on the main thread (GlassClock), as the shader's inputs
         final int x, y;
         final float inkTop, inkHeight;
 
@@ -45,9 +46,41 @@ final class GlassDigits {
         Rect ink = new Rect();
         paint.getTextBounds(text, 0, text.length(), ink);
         int pad = Math.round(40 * k);
+        return make(text, paint, ink, pad, Math.round(right - ink.width()) - pad, Math.round(top) - pad, k, 0, 0);
+    }
+
+    /**
+     * The digits and, apart from them, the colon (null without one): the digits' glass with the colon's columns cleared,
+     * and the colon alone at its place, so GlassClock can draw the colon bigger and smaller (the heartbeat).
+     */
+    static Glass[] makeParts(String text, Paint paint, float right, float top, float k) {
+        int ci = text.indexOf(':');
+        if (ci < 0) return new Glass[] {makeGlass(text, paint, right, top, k), null};
+        Rect ink = new Rect(), colonInk = new Rect();
+        paint.getTextBounds(text, 0, text.length(), ink);
+        paint.getTextBounds(":", 0, 1, colonInk);
+        int pad = Math.round(40 * k);
+        int x = Math.round(right - ink.width()) - pad, y = Math.round(top) - pad;
+        float prefix = paint.measureText(text, 0, ci), advance = paint.measureText(text, ci, ci + 1);
+        int from = Math.round(pad - ink.left + prefix), to = Math.round(pad - ink.left + prefix + advance);
+        Glass digits = make(text, paint, ink, pad, x, y, k, from, to);
+        // The colon alone: its text origin sits where it does in the whole text.
+        float originX = x + pad - ink.left + prefix, baseline = y + pad - ink.top;
+        int cx = Math.round(originX + colonInk.left) - pad, cy = Math.round(baseline + colonInk.top) - pad;
+        return new Glass[] {digits, make(":", paint, colonInk, pad, cx, cy, k, 0, 0)};
+    }
+
+    /** One rendering; columns [clearFrom, clearTo) of the sharp rendering are left empty (none when clearTo <= clearFrom). */
+    private static Glass make(String text, Paint paint, Rect ink, int pad, int atX, int atY, float k, int clearFrom, int clearTo) {
         int w = ink.width() + 2 * pad, h = ink.height() + 2 * pad;
         Bitmap cover = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        new Canvas(cover).drawText(text, pad - ink.left, pad - ink.top, paint);
+        Canvas canvas = new Canvas(cover);
+        canvas.drawText(text, pad - ink.left, pad - ink.top, paint);
+        if (clearTo > clearFrom) {
+            Paint erase = new Paint();
+            erase.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR));
+            canvas.drawRect(Math.max(0, clearFrom), 0, Math.min(w, clearTo), h, erase);
+        }
         int[] px = new int[w * h];
         cover.getPixels(px, 0, w, 0, 0, w, h);
         int[] alpha = new int[px.length];
@@ -74,7 +107,7 @@ final class GlassDigits {
                 shadow[i] = Math.min(255, soft[i] / 16) << 24;
             }
         }
-        int x = Math.round(right - ink.width()) - pad, y = Math.round(top) - pad;
+        int x = atX, y = atY;
         return new Glass(text, Bitmap.createBitmap(slope, w, h, Bitmap.Config.ARGB_8888), cover,
                 Bitmap.createBitmap(shadow, w, h, Bitmap.Config.ARGB_8888), x, y, pad, Math.max(1, ink.height()));
     }

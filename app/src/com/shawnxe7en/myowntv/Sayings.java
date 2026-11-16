@@ -8,7 +8,8 @@ import java.util.Random;
 /** The screensaver's quotes: a shuffled deck (every quote once before any repeats) and how long each one stays. */
 final class Sayings {
     static final int MAX_CHARS = 160;
-    private static final long MIN_MS = 60_000, MAX_MS = 300_000;
+    /** A quote stays on screen this long. */
+    static final long INTERVAL_MS = 120_000;
 
     static final class Saying {
         final String author, text, source;
@@ -55,10 +56,5 @@ final class Sayings {
         }
         last = deck.remove(deck.size() - 1);
         return last;
-    }
-
-    /** A quote stays on screen for 1 to 5 minutes, drawn fresh each time. */
-    static long nextDelayMs(Random rnd) {
-        return MIN_MS + (long) (rnd.nextDouble() * (MAX_MS - MIN_MS));
     }
 }

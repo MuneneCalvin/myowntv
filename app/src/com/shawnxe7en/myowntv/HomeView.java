@@ -217,7 +217,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     // Holding OK on a card: a small menu (hide it, open the app, cancel) on its own layer, drawn only while it shows.
     private static final float MENU_W = 720, MENU_PAD = 44, MENU_INSET = 16, MENU_ROW = 76, MENU_STEP = 80, MENU_R = 36;
     private final Spring menu = new Spring(0.26f, 0.86f, 0), menuPick = new Spring(0.22f, 0.9f, 0);
-    private final String[] menuOptions = new String[3];
+    private String[] menuOptions = new String[3];
+    private String menuUpdate = "";   // the version, while the menu is the update notice (Install / Later); "" for a card's menu
     private final RectF menuPanel = new RectF();
     private final Set<String> hiddenNow = new HashSet<>();   // hidden this session (a reload already under way may not know)
     private boolean menuOpen;
@@ -2977,7 +2978,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (menuOpen) {   // a click on a row picks it; anywhere else closes the menu (never what's behind it)
             int row = menuAt(x, y);
             if (row < 0) {
-                closeMenu(false);
+                dismissMenu();
                 click.move();
                 return;
             }
@@ -4559,6 +4560,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void showMenu() {
         if (menuOpen || !canHold() || menuTitlePaint == null) return;
         menuItem = watching.get(watchIndex);
+        menuUpdate = "";
+        menuOptions = new String[3];
         float width = (MENU_W - 2 * MENU_PAD) * k;
         String title = menuItem.title + (menuItem.episode != null ? " · " + menuItem.episode : "");
         menuTitle = TextUtils.ellipsize(title, new TextPaint(menuTitlePaint), width, TextUtils.TruncateAt.END).toString();
@@ -4581,7 +4584,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** The panel, centered on the screen: title, the app's name (if known) and the three options. */
     private void layoutMenu() {
-        float rows = (MENU_PAD + 34 + (menuSub.isEmpty() ? 0 : 38) + 32 + 2 * MENU_STEP + MENU_ROW + MENU_INSET) * k;
+        float rows = (MENU_PAD + 34 + (menuSub.isEmpty() ? 0 : 38) + 32 + (menuOptions.length - 1) * MENU_STEP + MENU_ROW + MENU_INSET) * k;
         float left = (w - MENU_W * k) / 2, top = (h - rows) / 2;
         menuPanel.set(left, top, left + MENU_W * k, top + rows);
         menuOptionsTop = top + (MENU_PAD + 34 + (menuSub.isEmpty() ? 0 : 38) + 32) * k;
@@ -4633,7 +4636,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                     if (e.getRepeatCount() == 0) backDown = true;
                 } else {
                     if (backDown && !e.isCanceled()) {
-                        closeMenu(false);
+                        dismissMenu();
                         click.move();
                     }
                     backDown = false;
@@ -4642,6 +4645,41 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             default:
                 return false;
         }
+    }
+
+    /** Back or a click outside: a card's menu just closes; the update notice counts as Later. */
+    private void dismissMenu() {
+        if (!menuUpdate.isEmpty()) Updates.later(activity, menuUpdate);
+        closeMenu(false);
+    }
+
+    /**
+     * The Home screen says, on a resume, that an update is ready and checked (Updates): a notice with Install and Later,
+     * not again for 3 days after either (UpdateRules.shouldShow). Never over the drawer, the sheet or another menu.
+     */
+    void showUpdateNotice() {
+        if (menuOpen || sheetOpen || drawerOpen || reordering || menuTitlePaint == null) return;
+        JSONObject state = Updates.state(activity);
+        String installed = Updates.installedVersion(activity), version = state.optString("version");
+        if (!Updates.ready(state, installed)
+                || !UpdateRules.shouldShow(version, installed, Updates.laterVersion(activity), Updates.laterAt(activity), System.currentTimeMillis())) return;
+        float width = (MENU_W - 2 * MENU_PAD) * k;
+        menuItem = null;
+        menuUpdate = version;
+        menuOptions = new String[] {Ui.tr("Install"), Ui.tr("Later")};
+        menuTitle = TextUtils.ellipsize(Ui.trf("MyOwnTV {version} is ready", "version", version), new TextPaint(menuTitlePaint), width,
+                TextUtils.TruncateAt.END).toString();
+        menuSub = TextUtils.ellipsize(state.optString("notes"), new TextPaint(menuSubPaint), width, TextUtils.TruncateAt.END).toString();
+        layoutMenu();
+        menuOpen = true;
+        menuIndex = 0;
+        menuPick.snap(0);
+        menu.target = 1;
+        menuLayer.setVisibility(VISIBLE);
+        menuLayer.invalidate();
+        wake();
+        click.open();
+        spoken.focusMoved();
     }
 
     private void moveMenu(int d) {
@@ -4658,6 +4696,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void pickMenu() {
         WatchNext.Item it = menuItem;
         int choice = menuIndex;
+        if (!menuUpdate.isEmpty()) {   // the update notice: Install or Later (either way not again for 3 days, so Android's installer being cancelled does not bring it back)
+            String version = menuUpdate;
+            closeMenu(false);
+            Updates.later(activity, version);
+            click.open();
+            if (choice == 0) ModeJob.schedule(activity, ModeJob.INSTALL, "", 0);
+            return;
+        }
         closeMenu(false);
         if (it == null) return;
         if (choice == 0) {
@@ -4725,7 +4771,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         for (int i = 0; i < menuOptions.length; i++) {
             menuRow(i, tmp);
             float f = Ui.clamp(1 - Math.abs(pick - i));
-            int base = i == 0 ? tone(0xFFD70015, 0xFFFF6961) : ink;   // hiding is the destructive one: red
+            int base = i == 0 && menuUpdate.isEmpty() ? tone(0xFFD70015, 0xFFFF6961) : ink;   // hiding is the destructive one: red
             menuOptionPaint.setColor(Ui.alpha(blend(base, onPill, f), a));
             c.drawText(menuOptions[i], tmp.left + 28 * k, tmp.centerY() + Ui.halfCap(menuOptionPaint), menuOptionPaint);
         }

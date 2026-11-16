@@ -36,6 +36,9 @@ public class UpdateRulesTest {
         check(UpdateRules.shouldShow("1.3.0", "1.1.0", "1.2.0", now - day, now), "a newer version than the hidden one: shown at once");
         check(!UpdateRules.shouldShow("1.1.0", "1.1.0", "", 0, now), "ready equals installed: not shown");
         check(!UpdateRules.shouldShow("1.0.1", "1.1.0", "", 0, now), "ready older than installed: not shown");
+        check(UpdateRules.retryHttp(500) && UpdateRules.retryHttp(503) && UpdateRules.retryHttp(599), "a GitHub server error is tried again soon");
+        check(!UpdateRules.retryHttp(403) && !UpdateRules.retryHttp(429) && !UpdateRules.retryHttp(404) && !UpdateRules.retryHttp(200),
+                "a rate limit or a missing file waits for the weekly check");
         System.out.println("PASS UpdateRulesTest");
     }
 }

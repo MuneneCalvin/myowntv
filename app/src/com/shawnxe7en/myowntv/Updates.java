@@ -273,8 +273,23 @@ final class Updates {
             } else {
                 set(c, FAILED, version, offline(e) ? OFFLINE : OTHER);
             }
-            return true;
+            return retrySoon(e);
         }
+    }
+
+    /** GitHub answered with something other than 200. */
+    private static final class HttpStatus extends IOException {
+        final int code;
+
+        HttpStatus(int code) {
+            super("GitHub returned HTTP " + code);
+            this.code = code;
+        }
+    }
+
+    /** Worth the system trying again soon: no network, or GitHub itself failing. Anything else waits for the week's check. */
+    private static boolean retrySoon(Exception e) {
+        return offline(e) || e instanceof HttpStatus && UpdateRules.retryHttp(((HttpStatus) e).code);
     }
 
     private static boolean offline(Exception e) {
@@ -317,7 +332,7 @@ final class Updates {
         long total = 0, said = System.currentTimeMillis();
         HttpURLConnection h = open(url);
         try {
-            if (h.getResponseCode() != 200) throw new IOException("GitHub returned HTTP " + h.getResponseCode());
+            if (h.getResponseCode() != 200) throw new HttpStatus(h.getResponseCode());
             try (InputStream in = h.getInputStream(); OutputStream out = new FileOutputStream(part)) {
                 byte[] buffer = new byte[16384];
                 int n;
@@ -348,7 +363,8 @@ final class Updates {
     /**
      * Why the downloaded APK can't update this app, or null if it can: it must be this app, newer (Android refuses a
      * lower versionCode, and an equal versionName would be offered again and again) and signed with the release key.
-     * A signature that can't be read here is left to Android's installer, which refuses another key.
+     * A signature that can't be read as exactly one certificate is refused too: the pin is the one check that does not
+     * trust GitHub.
      */
     @SuppressWarnings("deprecation")   // versionCode: getLongVersionCode is Android 9+
     private static String misfit(Context c, File apk) throws PackageManager.NameNotFoundException {
@@ -362,8 +378,8 @@ final class Updates {
             return "isn't newer than this app: " + name + " (" + theirs.versionCode + ")";
         }
         String cert = cert(theirs);
-        if (cert == null) AppLog.w("update: couldn't read the APK's signature; Android's installer checks it");
-        else if (!RELEASE_CERT.equals(cert)) return "isn't signed with the project's key";
+        if (cert == null) return "has no single readable signature";
+        if (!RELEASE_CERT.equals(cert)) return "isn't signed with the project's key";
         return null;
     }
 
@@ -465,7 +481,7 @@ final class Updates {
         HttpURLConnection h = open(url);
         h.setRequestProperty("Accept", "application/vnd.github+json");
         try {
-            if (h.getResponseCode() != 200) throw new IOException("GitHub returned HTTP " + h.getResponseCode());
+            if (h.getResponseCode() != 200) throw new HttpStatus(h.getResponseCode());
             try (InputStream in = h.getInputStream()) {
                 return read(in);
             }
@@ -478,7 +494,7 @@ final class Updates {
     private static String small(String url) throws IOException {
         HttpURLConnection h = open(url);
         try {
-            if (h.getResponseCode() != 200) throw new IOException("GitHub returned HTTP " + h.getResponseCode());
+            if (h.getResponseCode() != 200) throw new HttpStatus(h.getResponseCode());
             try (InputStream in = h.getInputStream()) {
                 byte[] buffer = new byte[1024];
                 int n = in.read(buffer);

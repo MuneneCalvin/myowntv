@@ -62,6 +62,11 @@ final class UpdateRules {
         return s.matches("[0-9a-fA-F]{64}") ? s.toLowerCase(Locale.ROOT) : "";
     }
 
+    /** A failed request worth trying again soon: GitHub's own errors (5xx). A rate limit (403, 429) or a missing file waits for the weekly check. */
+    static boolean retryHttp(int code) {
+        return code >= 500 && code < 600;
+    }
+
     /** The notice is due: a newer version is ready, and the person has not said Later to this very version in the last 3 days. */
     static boolean shouldShow(String ready, String installed, String laterVersion, long laterAt, long now) {
         if (compare(ready, installed) <= 0) return false;

@@ -16,9 +16,10 @@ Top buttons > gear, or open the MyOwnTV app. **Home Settings** has:
 | Top of the screen | Nothing, Continue Watching, or TMDB picks under the clock |
 | Picks | Which streaming services the picks come from, per tab |
 | Weather widget, City, Forecast | The weather line and card, which city, hours or days |
-| Weather effects | Rain, snow, storm and fog over the wallpaper (on by default) |
+| Weather effects | Rain, snow, storm and fog over the wallpaper and the screensaver (on by default) |
 | Holiday decorations | New Year, Valentine's, Easter, Halloween, Christmas, Ramadan / Eid, Diwali (on by default) |
 | Scenes | Turn wallpapers on or off with previews, and set minutes per picture |
+| Screensaver quotes | A quote and its author at the bottom of the screensaver, changing every 1 to 5 minutes (on by default) |
 | Quotes widget | Crypto prices in the corner and the drawer |
 | TMDB key, Watchmode key | Your own free keys for the picks |
 

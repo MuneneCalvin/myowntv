@@ -6,23 +6,23 @@ public class HeartbeatTest {
     }
     public static void main(String[] a) {
         long p = Heartbeat.PERIOD_MS;
-        check(Heartbeat.scale(0) == 1f, "at rest at the start of a beat");
-        check(Math.abs(Heartbeat.scale(p) - 1f) < 1e-6, "periodic");
-        check(Math.abs(Heartbeat.scale(7 * p + 123) - Heartbeat.scale(123)) < 1e-4, "the same beat every period");
+        check(Heartbeat.glow(0) == 0f, "no glow at the start of a beat");
+        check(Math.abs(Heartbeat.glow(p) - Heartbeat.glow(0)) < 1e-6, "periodic");
+        check(Math.abs(Heartbeat.glow(7 * p + 123) - Heartbeat.glow(123)) < 1e-4, "the same beat every period");
         float lub = 0, dub = 0, max = 0, min = 9;
         for (long t = 0; t < p; t++) {
-            float s = Heartbeat.scale(t);
-            max = Math.max(max, s);
-            min = Math.min(min, s);
-            if (t < p * 0.18) lub = Math.max(lub, s);
-            else if (t > p * 0.2 && t < p * 0.38) dub = Math.max(dub, s);
+            float g = Heartbeat.glow(t);
+            max = Math.max(max, g);
+            min = Math.min(min, g);
+            if (t < p * 0.18) lub = Math.max(lub, g);
+            else if (t > p * 0.2 && t < p * 0.38) dub = Math.max(dub, g);
         }
-        check(lub > 1.15 && lub <= Heartbeat.MAX_SCALE, "the first beat is the bigger one: " + lub);
-        check(dub > 1.08 && dub < lub, "the second beat is smaller: " + dub);
-        check(max <= Heartbeat.MAX_SCALE + 1e-4, "never above MAX_SCALE");
-        check(min >= 1f - 1e-6, "never smaller than at rest");
-        check(Heartbeat.scale((long) (p * 0.6)) == 1f && Heartbeat.scale((long) (p * 0.9)) == 1f, "rests between beats");
-        check(Heartbeat.scale(-1) >= 1f, "a negative time does not break it");
+        check(lub > 0.98 && lub <= 1f, "the first beat is full: " + lub);
+        check(dub > 0.65 && dub < lub, "the second beat is softer: " + dub);
+        check(max <= 1f + 1e-6, "never above full glow");
+        check(min >= 0f, "never below no glow");
+        check(Heartbeat.glow((long) (p * 0.6)) == 0f && Heartbeat.glow((long) (p * 0.9)) == 0f, "rests between beats");
+        check(Heartbeat.glow(-1) >= 0f, "a negative time does not break it");
         System.out.println("PASS HeartbeatTest");
     }
 }

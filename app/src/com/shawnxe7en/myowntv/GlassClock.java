@@ -26,6 +26,7 @@ final class GlassClock {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Paint paint = new Paint();
     private final Paint shadowPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Paint glowPaint = new Paint(Paint.FILTER_BITMAP_FLAG);   // the colon's shadow shape in white: its heartbeat glow
     private RuntimeShader shader;
     private GlassDigits.Glass glass, colon, bound;   // the digits, the colon apart from them, and what the shader's inputs hold now
     private String builtFor = "", building = "";
@@ -33,6 +34,7 @@ final class GlassClock {
     private int generation;
 
     GlassClock(Context c) {
+        glowPaint.setColorFilter(new android.graphics.PorterDuffColorFilter(0xFFFFFFFF, android.graphics.PorterDuff.Mode.SRC_IN));
         try {
             shader = new RuntimeShader(Shaders.GLASS_TEXT);
             paint.setShader(shader);
@@ -85,7 +87,7 @@ final class GlassClock {
 
     /**
      * The shadow and the glass digits over what is drawn so far; `copy` is the scene's blurred copy, `nowMs` the time for
-     * the colon's heartbeat (Heartbeat).
+     * the colon's heartbeat (Heartbeat: it glows brighter and dimmer).
      */
     void draw(Canvas c, Bitmap copy, int w, float k, long nowMs) {
         GlassDigits.Glass g = glass, cg = colon;
@@ -98,11 +100,18 @@ final class GlassClock {
         }
         drawPart(c, g, g, copy, w, k);
         if (cg == null) return;
-        float s = Heartbeat.scale(nowMs);
-        c.save();
-        c.scale(s, s, cg.x + cg.cover.getWidth() / 2f, cg.y + cg.cover.getHeight() / 2f);
+        // The beat is a soft white glow behind the colon's dots (the colon itself stays as it is: dimmed or grown, its
+        // square dots looked rough, and over a dark part of the scene they vanished).
+        float glow = Heartbeat.glow(nowMs);
+        if (glow > 0.01f) {
+            glowPaint.setAlpha(Math.round(255 * 0.8f * glow));
+            float s = 1.3f;
+            c.save();
+            c.scale(s, s, cg.x + cg.cover.getWidth() / 2f, cg.y + cg.cover.getHeight() / 2f);
+            c.drawBitmap(cg.shadow, cg.x, cg.y, glowPaint);
+            c.restore();
+        }
         drawPart(c, cg, g, copy, w, k);
-        c.restore();
     }
 
     /** One piece (the digits, or the colon), shaded as the digits are: `ref` is the digits' glass (the same ink height for both). */
@@ -126,11 +135,11 @@ final class GlassClock {
         c.drawRect(g.x, g.y, g.x + g.cover.getWidth(), g.y + g.cover.getHeight(), paint);
     }
 
-    /** Where the colon can be drawn at its biggest (with its shadow); false until the digits are built. For redrawing just that. */
+    /** Where the colon is drawn (with its shadow); false until the digits are built. For redrawing just that. */
     boolean colonBounds(Rect out, float k) {
         GlassDigits.Glass cg = colon;
         if (cg == null || glass == null) return false;
-        float hw = cg.cover.getWidth() / 2f * Heartbeat.MAX_SCALE + 4 * k, hh = cg.cover.getHeight() / 2f * Heartbeat.MAX_SCALE + 10 * k;
+        float hw = cg.cover.getWidth() / 2f * 1.35f + 8 * k, hh = cg.cover.getHeight() / 2f * 1.35f + 8 * k;
         float cx = cg.x + cg.cover.getWidth() / 2f, cy = cg.y + cg.cover.getHeight() / 2f;
         out.set((int) (cx - hw), (int) (cy - hh), (int) Math.ceil(cx + hw), (int) Math.ceil(cy + hh));
         return true;

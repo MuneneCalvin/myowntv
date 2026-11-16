@@ -46,6 +46,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     private final List<String> sayingLines = new ArrayList<>();
     private long sayingChangeAt, sayingFadeFrom = -1;
     private boolean sayingSwapped;
+    private int shadowAlpha = -1;   // the quote's shadow as last set: it fades with the text
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -210,7 +211,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         } catch (IOException e) {
             all = new ArrayList<>();
         }
-        sayings = new Sayings(all, rnd);
+        if (sayings == null) sayings = new Sayings(all, rnd);   // kept across start/stop: a restart never repeats the last quote
         saying = sayings.next();
         sayingChangeAt = SystemClock.uptimeMillis() + Sayings.nextDelayMs(rnd);
         sayingFadeFrom = -1;
@@ -264,6 +265,11 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         }
         sayPaint.setAlpha(Math.round(0xE6 * alpha));
         authorPaint.setAlpha(Math.round(0x99 * alpha));
+        int shadow = Math.round(0xA6 * alpha);   // a shadow colour with its own alpha ignores the paint's: fade it too
+        if (shadow != shadowAlpha) {
+            shadowAlpha = shadow;
+            for (Paint p : new Paint[] {sayPaint, authorPaint}) p.setShadowLayer(16 * k, 0, 2 * k, shadow << 24);
+        }
         float cx = w / 2f, lineH = 42 * k, authorBase = h - 92 * k;
         float first = authorBase - 52 * k - (sayingLines.size() - 1) * lineH;
         for (int i = 0; i < sayingLines.size(); i++) c.drawText(sayingLines.get(i), cx, first + i * lineH, sayPaint);

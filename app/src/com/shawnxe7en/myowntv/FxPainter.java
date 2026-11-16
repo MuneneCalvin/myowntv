@@ -9,7 +9,7 @@ final class FxPainter {
     private final float[] px = new float[WeatherFx.MAX_PARTICLES], py = new float[WeatherFx.MAX_PARTICLES],
             pv = new float[WeatherFx.MAX_PARTICLES], pts = new float[WeatherFx.MAX_PARTICLES * 4];
     private final java.util.Random rnd = new java.util.Random();
-    private int kind, count, holiday;
+    private int kind, count;
     private HolidayArt art;
     private boolean decor;
     private long holidayDay = -1;
@@ -28,7 +28,7 @@ final class FxPainter {
         long today = System.currentTimeMillis() / 3_600_000L;   // looked up again each hour
         if (today != holidayDay) {
             holidayDay = today;
-            holiday = Holidays.on(java.time.LocalDate.now());
+            int holiday = Holidays.on(java.time.LocalDate.now());
             art = holiday == Holidays.NONE ? null : new HolidayArt(holiday);
         }
         decor = holidaysOn && art != null;

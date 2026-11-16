@@ -40,3 +40,10 @@ Install the streaming apps you use; MyOwnTV takes turns between them. They come 
 - **No picks:** add a TMDB key in Home Settings, and check the streaming apps are installed.
 - **Slow or laggy:** the TV is short on memory. Turn off Weather effects and Holiday decorations, or turn off scenes you do not need.
 - **Go back to the stock home:** MyOwnTV > Home Screen > Original.
+
+## Updates
+- Once a week MyOwnTV looks at this project's GitHub releases. A newer one is downloaded and checked (it must be signed with the project's key, and its SHA-256 must match), then a notice appears on the Home screen: **Install** or **Later**.
+- **Install** opens Android's own install screen: press OK there. The first time, the TV may ask you to allow MyOwnTV to install apps ("Install unknown apps"): allow it.
+- **Later** hides the notice for 3 days. Home Settings > Updates shows the state and lets you check or install at any time.
+- A copy built on a computer (with your own keys) is only told that a new version exists; install it from the release or build it again.
+- Versions before 1.1.0 have no updater: install 1.1.0 once by hand, after that it updates itself.

@@ -18,6 +18,8 @@ installed, so nothing is disabled or removed.
 - **Dock and drawer:** your apps as dark glass squares; Down opens inputs, shortcuts, weather and crypto prices.
 - **Screensaver:** the same scenes, clock, weather effects and holiday decorations as the home screen, with a quote from
   Kafka, Dostoevsky, Gibran, Darwish or Wilde at the bottom that changes every 1 to 5 minutes (works offline).
+- **Updates:** MyOwnTV checks GitHub's releases once a week; when a newer one is ready a notice on the Home screen offers
+  Install or Later (Android asks you to confirm the install).
 - **Home button:** pressing Home from any app brings MyOwnTV straight back, with no flash of the Google home.
 
 ## Requirements

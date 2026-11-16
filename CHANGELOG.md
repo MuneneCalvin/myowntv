@@ -3,6 +3,7 @@
 ## 1.1.0
 - New MyOwnTV icon and banner.
 - The screensaver now shows the same weather effects (rain, snow, storm, fog) and holiday decorations as the home screen.
+- Updates: MyOwnTV finds new releases on GitHub itself and offers Install or Later on the Home screen (Home Settings > Updates checks by hand). Only the APK from the releases installs updates.
 - The screensaver shows a quote (Kafka, Dostoevsky, Gibran, Darwish, Wilde) instead of the crypto prices, changing every 1 to 5 minutes. Turn it off with Home Settings > Screensaver quotes.
 
 ## 1.0.1

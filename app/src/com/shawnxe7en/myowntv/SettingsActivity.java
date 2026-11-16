@@ -944,12 +944,12 @@ public class SettingsActivity extends Activity {
                 CLOCKS = {"auto", "24", "12"};
         /** Home Settings: language, temperature, theme, clock, my photos, sounds, top of the screen, picks, Continue
          *  Watching's apps, watch from the screensaver, Android apps, status icons, at power-on, Live TV button, weather, city, forecast,
-         *  scenes, quotes, one row per coin, then the TMDB and Watchmode keys and
+         *  scenes, screensaver quotes, quotes, one row per coin, then the TMDB and Watchmode keys and
          *  the keys (the last rows). */
         private static final int CLOCK_ROW = 3, TOP_ROW = 5, PICKS_ROW = 6, WATCH_ROW = 7,
                 ANDROID_APPS_ROW = 8, STATUS_ICONS_ROW = 9, POWER_ON_ROW = 10,
                 LIVE_BUTTON_ROW = 11, WEATHER_ROW = 12, FX_ROW = 13, HOLIDAY_ROW = 14, CITY_ROW = 15, FORECAST_ROW = 16, 
-                SCENES_ROW = 17, QUOTES_ROW = 18, COIN_ROWS = QUOTES_ROW + 1;
+                SCENES_ROW = 17, SAYINGS_ROW = 18, QUOTES_ROW = 19, COIN_ROWS = QUOTES_ROW + 1;
         /** Home Settings rows on screen at once (what fits above the hints at 1080p); a longer list scrolls. */
         private static final int SETTINGS_VISIBLE = 10;
 
@@ -977,6 +977,7 @@ public class SettingsActivity extends Activity {
             l.add(Ui.tr("City"));
             l.add(Ui.tr("Forecast"));
             l.add(Ui.tr("Scenes"));
+            l.add(Ui.tr("Screensaver quotes"));
             l.add(Ui.tr("Quotes widget"));
             l.add("Bitcoin");
             l.add("Ethereum");
@@ -1076,6 +1077,7 @@ public class SettingsActivity extends Activity {
             v[CITY_ROW] = !cityStatus.isEmpty() ? cityStatus : Prefs.city().isEmpty() ? "—" : Prefs.city();
             v[FORECAST_ROW] = Prefs.forecast().equals("days") ? Ui.tr("Next days") : Ui.tr("Next hours");
             v[SCENES_ROW] = !Prefs.scenes() ? Ui.tr("Off") : SceneChoice.enabled(SceneChoice.ALL, Prefs.scenesOff()).length + " / " + SceneChoice.ALL.length;
+            v[SAYINGS_ROW] = onOff(Prefs.sayings());
             v[QUOTES_ROW] = onOff(Prefs.quotes());
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
             for (int i = COIN_ROWS; i < v.length - 2; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
@@ -1343,6 +1345,7 @@ public class SettingsActivity extends Activity {
                     break;
                 }
                 case SCENES_ROW: Prefs.setScenes(!Prefs.scenes()); break;
+                case SAYINGS_ROW: Prefs.setSayings(!Prefs.sayings()); break;
                 case WEATHER_ROW: Prefs.setWeather(!Prefs.weather()); break;
                 case FX_ROW: Prefs.setWeatherFx(!Prefs.weatherFx()); break;
                 case HOLIDAY_ROW: Prefs.setHolidays(!Prefs.holidays()); break;

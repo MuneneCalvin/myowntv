@@ -6,20 +6,30 @@ import android.graphics.Paint;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import android.view.Choreographer;
 import android.view.View;
 
 /**
  * The screensaver, in the same style as the home screen: one of the scenes (SceneLayer) full screen, the date and the
- * weather on one line, the big glass clock over the scenery (GlassClock) and the prices small at the bottom. With Scenes
- * off, or while the first scene loads, the big clock over the night aurora. Any key exits.
+ * weather on one line, the big glass clock over the scenery (GlassClock), the weather effects and holiday art of the home
+ * screen (FxPainter) and a quote from a book or poem small at the bottom (Sayings). With Scenes off, or while the first
+ * scene loads, the big clock over the night aurora. Any key exits.
  */
 final class DreamView extends View implements Choreographer.FrameCallback, HomeData.Listener {
     private static final double DRIFT_PERIOD_S = 600;
     private static final float SCENE_CLOCK_TOP = GlassClock.TOP;
+    private static final long FADE_MS = 600;   // a quote fades out, then the next fades in
 
     private final HomeData data;
     private final GlassClock glassClock;
+    private final FxPainter fx = new FxPainter();
+    private final Random rnd = new Random();
     private final Scene scene = new Scene(false);                // the night aurora, when no scene is on screen
     private final Recording content = Recording.create("clock");   // date, weather, prices (and the aurora's clock)
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -30,9 +40,12 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     private float k = 1;
     private long startedAt, lastFrame, lastSky, minute = -1;
     private String clock = "", date = "";
-    private Paint datePaint, clockPaint, weatherPaint, quotePaint, stalePaint;
-    private String staleLine = "", staleFor = "";
-    private int staleGeneration = -1;
+    private Paint datePaint, clockPaint, weatherPaint, sayPaint, authorPaint;
+    private Sayings sayings;
+    private Sayings.Saying saying;
+    private final List<String> sayingLines = new ArrayList<>();
+    private long sayingChangeAt, sayingFadeFrom = -1;
+    private boolean sayingSwapped;
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -61,6 +74,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         scenes = Prefs.scenes() ? new SceneLayer(getContext()) : null;
         sceneShown = false;
         glassClock.reset();
+        loadSayings();
         data.addListener(this);
         data.refreshIfStale();
         handler.postDelayed(tick, 60_000);
@@ -102,10 +116,12 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         clockPaint.setTextAlign(Paint.Align.CENTER);
         clockPaint.setLetterSpacing(-0.01f);
         weatherPaint = Ui.numbers(Ui.medium, 30 * k, 0xC7FFFFFF);
-        quotePaint = Ui.numbers(Ui.medium, 24 * k, 0x99FFFFFF);
-        stalePaint = Ui.text(Ui.regular, 20 * k, 0x59FFFFFF);
-        stalePaint.setTextAlign(Paint.Align.CENTER);
-        for (Paint p : new Paint[] {datePaint, weatherPaint, quotePaint}) p.setShadowLayer(16 * k, 0, 2 * k, 0xA6000000);   // legible on a pale scene
+        sayPaint = Ui.text(Ui.medium, 30 * k, 0xE6FFFFFF);
+        sayPaint.setTextAlign(Paint.Align.CENTER);
+        authorPaint = Ui.text(Ui.regular, 22 * k, 0x99FFFFFF);
+        authorPaint.setTextAlign(Paint.Align.CENTER);
+        for (Paint p : new Paint[] {datePaint, weatherPaint, sayPaint, authorPaint}) p.setShadowLayer(16 * k, 0, 2 * k, 0xA6000000);   // legible on a pale scene
+        layoutSaying();
         Symbols.warmWeather(getContext(), 32 * k);
         glassClock.reset();
         dirty = true;
@@ -153,6 +169,8 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         glassClock.update(clock, clockPaint, w, h, k, this::invalidate);
         glassClock.draw(c, scenes.glassCopy(), w, k);
         scenes.drawForeground(c);
+        HomeData.Weather wx = data.weather;
+        if (fx.update(wx != null && !Double.isNaN(wx.temp) ? wx.code : -1, Prefs.weatherFx(), Prefs.holidays())) fx.draw(c, w, h, up);
         if (dirty) {
             record();
         }
@@ -160,6 +178,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         content.setTranslationY(0);
         content.setAlpha(1);
         content.draw(c);
+        drawSaying(c, up);
         return true;
     }
 
@@ -177,6 +196,78 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         content.setTranslationY((float) (26 * k * Math.sin(2 * phase + 0.7)));
         content.setAlpha(1);
         content.draw(canvas);
+        drawSaying(canvas, up);
+    }
+
+    private void loadSayings() {
+        List<Sayings.Saying> all;
+        try (InputStream in = getContext().getAssets().open("sayings.txt")) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            all = Sayings.parse(out.toString("UTF-8"));
+        } catch (IOException e) {
+            all = new ArrayList<>();
+        }
+        sayings = new Sayings(all, rnd);
+        saying = sayings.next();
+        sayingChangeAt = SystemClock.uptimeMillis() + Sayings.nextDelayMs(rnd);
+        sayingFadeFrom = -1;
+        sayingSwapped = false;
+        layoutSaying();
+    }
+
+    /** The current quote wrapped to 70% of the width. */
+    private void layoutSaying() {
+        sayingLines.clear();
+        if (saying == null || sayPaint == null) return;
+        float max = w * 0.7f;
+        String t = saying.text;
+        while (!t.isEmpty()) {
+            int n = Math.max(1, sayPaint.breakText(t, true, max, null));
+            if (n < t.length()) {
+                int sp = t.lastIndexOf(' ', n);
+                if (sp > 0) n = sp;
+            }
+            sayingLines.add(t.substring(0, n).trim());
+            t = t.substring(n).trim();
+        }
+    }
+
+    /** The quote and its author near the bottom edge; every 1 to 5 minutes it fades out and the next fades in. */
+    private void drawSaying(Canvas c, long up) {
+        if (!Prefs.sayings() || saying == null || sayingLines.isEmpty() || sayPaint == null) return;
+        float alpha = 1;
+        if (sayingFadeFrom < 0 && up >= sayingChangeAt) {
+            sayingFadeFrom = up;
+            sayingSwapped = false;
+        }
+        if (sayingFadeFrom >= 0) {
+            long e = up - sayingFadeFrom;
+            if (e < FADE_MS) {
+                alpha = 1 - e / (float) FADE_MS;
+            } else {
+                if (!sayingSwapped) {
+                    saying = sayings.next();
+                    layoutSaying();
+                    sayingSwapped = true;
+                    if (sayingLines.isEmpty()) return;
+                }
+                if (e < 2 * FADE_MS) {
+                    alpha = (e - FADE_MS) / (float) FADE_MS;
+                } else {
+                    sayingFadeFrom = -1;
+                    sayingChangeAt = up + Sayings.nextDelayMs(rnd);
+                }
+            }
+        }
+        sayPaint.setAlpha(Math.round(0xE6 * alpha));
+        authorPaint.setAlpha(Math.round(0x99 * alpha));
+        float cx = w / 2f, lineH = 42 * k, authorBase = h - 92 * k;
+        float first = authorBase - 52 * k - (sayingLines.size() - 1) * lineH;
+        for (int i = 0; i < sayingLines.size(); i++) c.drawText(sayingLines.get(i), cx, first + i * lineH, sayPaint);
+        c.drawText(saying.author, cx, authorBase, authorPaint);
     }
 
     private void record() {
@@ -209,33 +300,6 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             float x = sl ? cx - lineW / 2 + dateW + 36 * k : cx - width / 2;
             Symbols.draw(getContext(), c, symbol, x + sw / 2, base - Ui.halfCap(weatherPaint), 32 * k, 0xC7FFFFFF);
             c.drawText(now, x + sw + 12 * k, base, weatherPaint);
-        }
-
-        // Prices near the bottom edge: small white logo + value, all on one line.
-        float cap = Ui.cap(quotePaint), spacing = 56 * k, gap = 10 * k;
-        int[] coins = HomeData.active();
-        String[] values = new String[HomeData.coinCount()];
-        float total = spacing * (values.length - 1);
-        for (int i = 0; i < values.length; i++) {
-            values[i] = HomeData.price(data.prices[coins[i]]);
-            total += Glyphs.width(getContext(), HomeData.COINS[coins[i]], cap) + gap + quotePaint.measureText(values[i]);
-        }
-        float x = cx - total / 2, base = h - 92 * k;
-        for (int i = 0; i < values.length; i++) {
-            float gw = Glyphs.width(getContext(), HomeData.COINS[coins[i]], cap);
-            Glyphs.coin(getContext(), c, HomeData.COINS[coins[i]], x + gw / 2, base - cap / 2, cap, 0x80FFFFFF);
-            x += gw + gap;
-            c.drawText(values[i], x, base, quotePaint);
-            x += quotePaint.measureText(values[i]) + spacing;
-        }
-        String stale = HomeData.staleness(data.pricesAt, 5 * 60_000L);
-        if (!stale.isEmpty() && values.length > 0) {
-            if (!stale.equals(staleFor) || Ui.generation != staleGeneration) {
-                staleLine = Ui.trf("prices from {ago}", "ago", stale);
-                staleFor = stale;
-                staleGeneration = Ui.generation;
-            }
-            c.drawText(staleLine, cx, base + 38 * k, stalePaint);
         }
     }
 }

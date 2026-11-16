@@ -378,6 +378,9 @@ final class Prefs {
     static void setHolidays(boolean on) { put("holidays", on); }
     static boolean weatherFx() { return sp().getBoolean("weatherFx", true); }
     static void setWeatherFx(boolean on) { put("weatherFx", on); }
+    /** The screensaver's quotes from books and poems (not the prices: those are quotes() above). */
+    static boolean sayings() { return sp().getBoolean("sayings", true); }
+    static void setSayings(boolean on) { put("sayings", on); }
     static boolean quotes() { return sp().getBoolean("quotes", Config.SHOW_CRYPTO); }
     static void setQuotes(boolean on) { put("quotes", on); }
 

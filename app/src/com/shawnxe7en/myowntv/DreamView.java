@@ -167,7 +167,10 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             dirty = true;
         }
         if (!shown) return false;
-        glassClock.update(clock, clockPaint, w, h, k, this::invalidate);
+        glassClock.update(clock, clockPaint, w, h, k, () -> {   // the glass digits are ready: the cached text layer must stop drawing the flat ones
+            dirty = true;
+            invalidate();
+        });
         glassClock.draw(c, scenes.glassCopy(), w, k);
         scenes.drawForeground(c);
         HomeData.Weather wx = data.weather;

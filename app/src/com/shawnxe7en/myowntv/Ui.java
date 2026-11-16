@@ -68,7 +68,7 @@ final class Ui {
     static volatile String language = "en";
     /** Bumped when the language changes: text cached by the screens is made again. */
     static volatile int generation;
-    static Typeface antonio, thin, light, displayMedium, displaySemibold, regular, medium, semibold;
+    static Typeface antonio, cursive, thin, light, displayMedium, displaySemibold, regular, medium, semibold;
     private static boolean loaded;
     private static final Rect BOUNDS = new Rect();
     private static final RectF OVAL = new RectF();
@@ -79,6 +79,7 @@ final class Ui {
         AssetManager a = c.getAssets();
         thin = font(a, 32, 200);
         antonio = antonio(a);
+        cursive = cursive(a);
         light = font(a, 32, 300);
         displayMedium = font(a, 32, 500);
         displaySemibold = font(a, 32, 600);
@@ -115,6 +116,17 @@ final class Ui {
             return Typeface.createFromAsset(a, "fonts/Antonio-Light.ttf");
         } catch (RuntimeException e) {
             return thin;
+        }
+    }
+
+    /** Dancing Script (a handwriting face, SIL OFL) at weight 500, for the screensaver's quotes; Inter if the file is missing. */
+    private static Typeface cursive(AssetManager a) {
+        try {
+            Typeface t = new Typeface.Builder(a, "fonts/DancingScript.ttf").setFontVariationSettings("'wght' 500").build();
+            if (t != null) return t;
+            return Typeface.createFromAsset(a, "fonts/DancingScript.ttf");
+        } catch (RuntimeException e) {
+            return medium;
         }
     }
 

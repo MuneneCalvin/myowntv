@@ -220,6 +220,17 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private String[] menuOptions = new String[3];
     private String menuUpdate = "";   // the version, while the menu is the update notice (Install / Later); "" for a card's menu
     private final RectF menuPanel = new RectF();
+    // The update notice (menuUpdate): a glass card at the top right with the app's icon, the text and two buttons.
+    private static final float NOTICE_W = 680, NOTICE_H = 214, NOTICE_PAD = 28, NOTICE_ICON = 76, NOTICE_BTN_H = 60, NOTICE_MS = 30_000;
+    private final RectF[] noticeBtn = {new RectF(), new RectF()};
+    private Bitmap noticeIcon;
+    private Paint noticeTitle, noticeSub, noticeLabel;
+    private final Runnable noticeTimeout = this::noticeTimedOut;
+
+    /** Nobody chose in 30 seconds: the same as Later. */
+    private void noticeTimedOut() {
+        if (menuOpen && !menuUpdate.isEmpty()) dismissMenu();
+    }
     private final Set<String> hiddenNow = new HashSet<>();   // hidden this session (a reload already under way may not know)
     private boolean menuOpen;
     private int menuIndex;
@@ -1015,6 +1026,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         menuTitlePaint = Ui.text(Ui.semibold, 34 * k, L_INK);
         menuSubPaint = Ui.text(Ui.medium, 25 * k, L_DIM);
         menuOptionPaint = Ui.text(Ui.medium, 30 * k, L_INK);
+        noticeTitle = Ui.text(Ui.semibold, 31 * k, 0xFFFFFFFF);
+        noticeSub = Ui.text(Ui.regular, 23 * k, 0xB8FFFFFF);
+        noticeLabel = Ui.text(Ui.semibold, 26 * k, 0xFFFFFFFF);
+        noticeLabel.setTextAlign(Paint.Align.CENTER);
+        post(this::showUpdateNotice);   // a start of the app: the first resume came before these paints existed
         if (menuOpen) layoutMenu();
         shadow.setMaskFilter(new BlurMaskFilter(SHADOW_BLUR * k, BlurMaskFilter.Blur.NORMAL));
         shadowSoft.setMaskFilter(new BlurMaskFilter(12 * k, BlurMaskFilter.Blur.NORMAL));
@@ -4584,18 +4600,38 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** The panel, centered on the screen: title, the app's name (if known) and the three options. */
     private void layoutMenu() {
+        if (!menuUpdate.isEmpty()) {
+            layoutNotice();
+            return;
+        }
         float rows = (MENU_PAD + 34 + (menuSub.isEmpty() ? 0 : 38) + 32 + (menuOptions.length - 1) * MENU_STEP + MENU_ROW + MENU_INSET) * k;
         float left = (w - MENU_W * k) / 2, top = (h - rows) / 2;
         menuPanel.set(left, top, left + MENU_W * k, top + rows);
         menuOptionsTop = top + (MENU_PAD + 34 + (menuSub.isEmpty() ? 0 : 38) + 32) * k;
     }
 
+    /** The notice's card, top right under the buttons, and its two buttons side by side along its bottom. */
+    private void layoutNotice() {
+        float right = w - MARGIN * k, left = right - NOTICE_W * k, top = 164 * k;
+        menuPanel.set(left, top, right, top + NOTICE_H * k);
+        float bw = (NOTICE_W - 2 * NOTICE_PAD - 16) / 2 * k, by = menuPanel.bottom - (NOTICE_PAD + NOTICE_BTN_H) * k;
+        for (int i = 0; i < 2; i++) {
+            float x = left + NOTICE_PAD * k + i * (bw + 16 * k);
+            noticeBtn[i].set(x, by, x + bw, by + NOTICE_BTN_H * k);
+        }
+    }
+
     private void menuRow(int i, RectF out) {
+        if (!menuUpdate.isEmpty()) {
+            out.set(noticeBtn[Math.max(0, Math.min(1, i))]);
+            return;
+        }
         float y = menuOptionsTop + i * MENU_STEP * k;
         out.set(menuPanel.left + MENU_INSET * k, y, menuPanel.right - MENU_INSET * k, y + MENU_ROW * k);
     }
 
     private void closeMenu(boolean snap) {
+        removeCallbacks(noticeTimeout);
         if (!menuOpen && !snap) return;
         boolean was = menuOpen;
         menuOpen = false;
@@ -4613,13 +4649,28 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
         switch (e.getKeyCode()) {
             case KeyEvent.KEYCODE_DPAD_UP:
+                if (!menuUpdate.isEmpty()) {   // out of the notice's way: the same as Later
+                    if (down) {
+                        dismissMenu();
+                        click.move();
+                    }
+                    return true;
+                }
                 if (down) moveMenu(-1);
                 return true;
             case KeyEvent.KEYCODE_DPAD_DOWN:
+                if (!menuUpdate.isEmpty()) {
+                    if (down) {
+                        dismissMenu();
+                        click.move();
+                    }
+                    return true;
+                }
                 if (down) moveMenu(1);
                 return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_DPAD_RIGHT:
+                if (!menuUpdate.isEmpty() && down) moveMenu(e.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
                 return true;
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_ENTER:
@@ -4658,18 +4709,21 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
      * not again for 3 days after either (UpdateRules.shouldShow). Never over the drawer, the sheet or another menu.
      */
     void showUpdateNotice() {
-        if (menuOpen || sheetOpen || drawerOpen || reordering || menuTitlePaint == null) return;
+        if (menuOpen || sheetOpen || drawerOpen || reordering || noticeTitle == null) return;
         JSONObject state = Updates.state(activity);
         String installed = Updates.installedVersion(activity), version = state.optString("version");
         if (!Updates.ready(state, installed)
                 || !UpdateRules.shouldShow(version, installed, Updates.laterVersion(activity), Updates.laterAt(activity), System.currentTimeMillis())) return;
-        float width = (MENU_W - 2 * MENU_PAD) * k;
+        float width = (NOTICE_W - 3 * NOTICE_PAD - NOTICE_ICON) * k;
         menuItem = null;
         menuUpdate = version;
         menuOptions = new String[] {Ui.tr("Install"), Ui.tr("Later")};
-        menuTitle = TextUtils.ellipsize(Ui.trf("MyOwnTV {version} is ready", "version", version), new TextPaint(menuTitlePaint), width,
+        menuTitle = TextUtils.ellipsize(Ui.trf("MyOwnTV {version} is ready", "version", version), new TextPaint(noticeTitle), width,
                 TextUtils.TruncateAt.END).toString();
-        menuSub = TextUtils.ellipsize(state.optString("notes"), new TextPaint(menuSubPaint), width, TextUtils.TruncateAt.END).toString();
+        menuSub = TextUtils.ellipsize(state.optString("notes"), new TextPaint(noticeSub), width, TextUtils.TruncateAt.END).toString();
+        if (noticeIcon == null) noticeIcon = android.graphics.BitmapFactory.decodeResource(getResources(), R.drawable.icon);
+        removeCallbacks(noticeTimeout);
+        postDelayed(noticeTimeout, (long) NOTICE_MS);
         layoutMenu();
         menuOpen = true;
         menuIndex = 0;
@@ -4740,6 +4794,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void drawMenu(Canvas c) {
         float v = menu.value, a = Ui.clamp(v);
         if (a <= 0.004f) return;
+        if (!menuUpdate.isEmpty()) {
+            drawNotice(c, v, a);
+            return;
+        }
         fill.setShader(null);
         fill.setColor(Ui.alpha(tone(0x38000000, 0x80000000), a));
         c.drawRect(screen, fill);
@@ -4775,6 +4833,50 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             menuOptionPaint.setColor(Ui.alpha(blend(base, onPill, f), a));
             c.drawText(menuOptions[i], tmp.left + 28 * k, tmp.centerY() + Ui.halfCap(menuOptionPaint), menuOptionPaint);
         }
+        c.restore();
+    }
+
+    /** The update notice: slides in from the right as a glass card (no scrim: Home stays visible behind it). */
+    private void drawNotice(Canvas c, float v, float a) {
+        RectF p = menuPanel;
+        float r = 36 * k;
+        c.save();
+        c.translate((1 - Ui.clamp(v)) * 56 * k, 0);
+        int layer = c.saveLayerAlpha(p.left - 48 * k, p.top - 48 * k, p.right + 64 * k, p.bottom + 72 * k, Math.round(255 * a));
+        tmp.set(p);
+        tmp.offset(0, 16 * k);
+        shadowDeep.setColor(Ui.alpha(0xFF000000, 0.5f));
+        shadows.draw(c, tmp, r, DEEP_BLUR * k, shadowDeep);
+        scene.glass(c, p, r, SMOKE, 0.62f, 0, 0, 0.02f, 1);
+        border.setColor(0x2EFFFFFF);
+        c.drawRoundRect(p, r, r, border);
+        // The app's icon, then the title and the release's first line beside it.
+        float ix = p.left + NOTICE_PAD * k, iy = p.top + NOTICE_PAD * k, is = NOTICE_ICON * k;
+        if (noticeIcon != null) {
+            tmp.set(ix, iy, ix + is, iy + is);
+            c.drawBitmap(noticeIcon, null, tmp, null);
+        }
+        float tx = ix + is + NOTICE_PAD * k;
+        noticeTitle.setAlpha(255);
+        c.drawText(menuTitle, tx, iy + 32 * k, noticeTitle);
+        if (!menuSub.isEmpty()) c.drawText(menuSub, tx, iy + 68 * k, noticeSub);
+        // The focus pill slides between the buttons; the focused one reads dark on white.
+        float pick = menuPick.value, br = NOTICE_BTN_H / 2f * k;
+        RectF b0 = noticeBtn[0], b1 = noticeBtn[1];
+        for (int i = 0; i < 2; i++) {
+            fill.setShader(null);
+            fill.setColor(0x1FFFFFFF);
+            c.drawRoundRect(noticeBtn[i], br, br, fill);
+        }
+        tmp.set(b0.left + (b1.left - b0.left) * pick, b0.top, b0.right + (b1.right - b0.right) * pick, b0.bottom);
+        fill.setColor(0xFFFFFFFF);
+        c.drawRoundRect(tmp, br, br, fill);
+        for (int i = 0; i < 2; i++) {
+            float f = Ui.clamp(1 - Math.abs(pick - i));
+            noticeLabel.setColor(blend(0xFFFFFFFF, 0xFF1C1C1E, f));
+            c.drawText(menuOptions[i], noticeBtn[i].centerX(), noticeBtn[i].centerY() + Ui.halfCap(noticeLabel), noticeLabel);
+        }
+        c.restoreToCount(layer);
         c.restore();
     }
 

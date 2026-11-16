@@ -117,9 +117,9 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         clockPaint.setTextAlign(Paint.Align.CENTER);
         clockPaint.setLetterSpacing(-0.01f);
         weatherPaint = Ui.numbers(Ui.medium, 30 * k, 0xC7FFFFFF);
-        sayPaint = Ui.text(Ui.medium, 30 * k, 0xE6FFFFFF);
+        sayPaint = Ui.text(Ui.cursive, 42 * k, 0xF2FFFFFF);
         sayPaint.setTextAlign(Paint.Align.CENTER);
-        authorPaint = Ui.text(Ui.regular, 22 * k, 0x99FFFFFF);
+        authorPaint = Ui.text(Ui.regular, 22 * k, 0xB3FFFFFF);
         authorPaint.setTextAlign(Paint.Align.CENTER);
         for (Paint p : new Paint[] {datePaint, weatherPaint, sayPaint, authorPaint}) p.setShadowLayer(16 * k, 0, 2 * k, 0xA6000000);   // legible on a pale scene
         layoutSaying();
@@ -266,15 +266,15 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
                 }
             }
         }
-        sayPaint.setAlpha(Math.round(0xE6 * alpha));
-        authorPaint.setAlpha(Math.round(0x99 * alpha));
+        sayPaint.setAlpha(Math.round(0xF2 * alpha));
+        authorPaint.setAlpha(Math.round(0xB3 * alpha));
         int shadow = Math.round(0xA6 * alpha);   // a shadow colour with its own alpha ignores the paint's: fade it too
         if (shadow != shadowAlpha) {
             shadowAlpha = shadow;
             for (Paint p : new Paint[] {sayPaint, authorPaint}) p.setShadowLayer(16 * k, 0, 2 * k, shadow << 24);
         }
-        float cx = w / 2f, lineH = 42 * k, authorBase = h - 92 * k;
-        float first = authorBase - 52 * k - (sayingLines.size() - 1) * lineH;
+        float cx = w / 2f, lineH = 54 * k, authorBase = h - 92 * k;
+        float first = authorBase - 56 * k - (sayingLines.size() - 1) * lineH;
         for (int i = 0; i < sayingLines.size(); i++) c.drawText(sayingLines.get(i), cx, first + i * lineH, sayPaint);
         c.drawText(saying.author, cx, authorBase, authorPaint);
     }

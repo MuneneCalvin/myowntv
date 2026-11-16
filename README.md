@@ -16,7 +16,7 @@ installed, so nothing is disabled or removed.
 - **Picks:** trending titles from the streaming apps installed on your TV, as a row of glass cards (needs a free TMDB key).
   A free Watchmode key makes a pick open the title's own page in its app.
 - **Dock and drawer:** your apps as dark glass squares; Down opens inputs, shortcuts, weather and crypto prices.
-- **Screensaver:** the same scenes, clock, weather effects and holiday decorations as the home screen, with a quote from
+- **Screensaver:** the same scenes, clock, weather effects and holiday decorations as the home screen, with a quote (in handwriting) from
   Kafka, Dostoevsky, Gibran, Darwish or Wilde at the bottom that changes every 1 to 5 minutes (works offline).
 - **Updates:** MyOwnTV checks GitHub's releases once a week; when a newer one is ready a notice on the Home screen offers
   Install or Later (Android asks you to confirm the install).

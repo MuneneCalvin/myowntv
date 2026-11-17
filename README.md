@@ -15,6 +15,8 @@ installed, so nothing is disabled or removed.
   Easter, Halloween, Christmas, Ramadan / Eid and Diwali add their own decorations. Each can be switched off.
 - **Picks:** trending titles from the streaming apps installed on your TV, as a row of glass cards (needs a free TMDB key).
   A free Watchmode key makes a pick open the title's own page in its app.
+- **Search:** the round Search button at the top right. Type or say a title and see which of your TV's streaming apps carry it
+  in your country; OK opens the app (on the title's own page with a Watchmode key), or saves it to My list (needs a free TMDB key).
 - **Dock and drawer:** your apps as dark glass squares; Down opens inputs, shortcuts, weather and crypto prices.
 - **Screensaver:** the same scenes, clock, weather effects and holiday decorations as the home screen, with a quote (in handwriting) from
   Kafka, Dostoevsky, Gibran, Darwish or Wilde at the bottom that changes every 2 minutes (works offline).

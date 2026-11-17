@@ -29,6 +29,17 @@ Top buttons > gear, or open the MyOwnTV app. **Home Settings** has:
 Install the streaming apps you use; MyOwnTV takes turns between them. They come from TMDB for your region
 (Home Settings > Picks). With a Watchmode key, a pick opens that title's own page in its app.
 
+## Search and My list
+The round **Search** button at the top right of the Home screen opens Search (if you changed the top buttons, add it in
+Home Settings > Top Buttons). It needs your free TMDB key, like the picks.
+- Press OK on the text box to bring up the keyboard and type a title, or choose **Speak** (shown when the TV has a speech
+  service, as Google TVs do). Results show each title's poster, year, and which of the apps installed on your TV have it
+  in your country (subscription, with ads or free; renting and buying don't count).
+- OK on a result lists "Open in ..." for each of those apps and **Save to My list**. With a Watchmode key, the app opens
+  on the title's page, else on its home screen.
+- **My list** (the button next to Speak) brings your saved titles back, with where each one streams now.
+The list is kept on the TV only.
+
 ## Troubleshooting
 - **Google home shows before MyOwnTV after a power-off boot:** expected for a few seconds; the home screen is switched
   with the Google home left on. Waking from standby is instant.

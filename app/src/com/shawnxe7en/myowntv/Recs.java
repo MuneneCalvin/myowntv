@@ -428,7 +428,7 @@ final class Recs {
     private final Map<Integer, Boolean> titlesKnown = new HashMap<>();
     private long titlesAt;
 
-    private static String name(String key) {
+    static String name(String key) {
         String known = SERVICE_NAME.get(key);
         if (known != null) return known;
         for (String[] s : byName) if (s[1].equals(key)) return s[3];
@@ -912,8 +912,15 @@ final class Recs {
         return true;
     }
 
+    /** Search: a TMDB request with the TV's key (an exception for no key or a refusal). */
+    static JSONObject tmdb(String path) throws IOException, org.json.JSONException {
+        String key = key();
+        if (key.isEmpty()) throw new IOException("no TMDB key");
+        return request(path, key);
+    }
+
     /** Language of titles and genres (TMDB's "fr-FR", "zh-CN"…); the services come from the region. */
-    private static String lang() {
+    static String lang() {
         String lang = Ui.language;
         if (lang.equals("en")) return "en-US";
         if (lang.equals("pt")) return "pt-BR";
@@ -1104,6 +1111,11 @@ final class Recs {
 
     /** The SERVICES row for a TMDB name: the installed one first, when a service has more than one package. */
     private String[] service(String name, int providerId) {
+        return serviceFor(context, name, providerId);
+    }
+
+    /** As service(), for Search: the SERVICES row {TMDB name, key, package} of a TMDB provider, or null. */
+    static String[] serviceFor(Context c, String name, int providerId) {
         String n = name.toLowerCase(Locale.ROOT);
         String[] first = null;
         // "HBO Max Amazon Channel", "Apple TV Amazon Channel"...: a subscription sold inside another app, not this one.
@@ -1112,7 +1124,7 @@ final class Recs {
             // Apple TV: only the streaming service (TMDB provider 350); provider 2 is the Apple TV Store (rent or buy).
             if (s[1].equals("appletv") && providerId != 350) continue;
             if (!(s[0].equals("max") ? n.matches(".*\\bmax\\b.*") : WHOLE_NAME.contains(s[0]) ? n.equals(s[0]) : n.contains(s[0]))) continue;
-            if (installed(s[2])) return s;
+            if (installed(c, s[2])) return s;
             if (first == null) first = s;
         }
         if (first == null) for (String[] s : byName) if (s[0].equals(plain(name))) return s;
@@ -1137,9 +1149,13 @@ final class Recs {
      * hide_services line of config.properties is where those switches start: an app the TV ships without a subscription).
      */
     private boolean installed(String pkg) {
+        return installed(context, pkg);
+    }
+
+    private static boolean installed(Context c, String pkg) {
         for (String[] s : SERVICES) if (s[2].equals(pkg) && Prefs.serviceOff(s[1])) return false;
         for (String[] s : byName) if (s[2].equals(pkg) && Prefs.serviceOff(s[1])) return false;
-        return HomeApps.launchIntent(context.getPackageManager(), pkg) != null;
+        return HomeApps.launchIntent(c.getPackageManager(), pkg) != null;
     }
 
     private boolean stremio() {
@@ -1200,27 +1216,7 @@ final class Recs {
         }
         if (System.currentTimeMillis() < linkRetryAt) return;
         try {
-            String link = "";
-            JSONArray found = new JSONObject(watchmode("/search/?search_field=tmdb_" + p.kind + "_id&search_value=" + p.id, watchmodeKey()))
-                    .optJSONArray("title_results");
-            if (found != null && found.length() > 0) {
-                JSONArray sources = new JSONArray(watchmode("/title/" + found.getJSONObject(0).getInt("id") + "/sources/?regions=" + REGION, watchmodeKey()));
-                String[] service = null;
-                for (String[] s : SERVICES) if (s[1].equals(p.app)) service = s;
-                for (String[] s : byName) if (s[1].equals(p.app)) service = s;
-                for (int i = 0; service != null && i < sources.length() && link.isEmpty(); i++) {
-                    JSONObject s = sources.getJSONObject(i);
-                    String words = s.optString("name").toLowerCase(Locale.ROOT), name = words.replace(" ", "");
-                    String want = service[0].replace(" ", "");
-                    // Not a channel sold inside another app ("AppleTV+ Amazon Channel", "Paramount+ (Via Amazon Prime)"):
-                    // that link opens Amazon or Apple's app, not the one the pick is for.
-                    boolean resold = name.contains("channel") || name.contains("(via");
-                    // Max as a word, as for TMDB's providers: Watchmode calls it "HBO Max" again, and Cinemax isn't it.
-                    boolean same = !resold && (want.equals("max") ? words.matches(".*\\bmax\\b.*")
-                            : WHOLE_NAME.contains(want) ? name.equals(want) : name.contains(want));
-                    if (same && s.optString("type").equals("sub") && s.optString("web_url").startsWith("https://")) link = s.optString("web_url");
-                }
-            }
+            String link = watchmodeLink(p.kind, p.id, p.app);
             cache.edit().putString(linkKey(p), link).apply();
             p.link = link.isEmpty() ? null : link;
         } catch (Exception e) {
@@ -1230,6 +1226,32 @@ final class Recs {
             linkRetryAt = System.currentTimeMillis() + 10 * 60_000L;   // quota or network: not again right away
             AppLog.w("watchmode: " + e.getMessage());
         }
+    }
+
+    /** The title's own page in the app `appKey` (a SERVICES key), through Watchmode; "" if it has none there. */
+    static String watchmodeLink(String kind, int id, String appKey) throws IOException, org.json.JSONException {
+        String link = "";
+        JSONArray found = new JSONObject(watchmode("/search/?search_field=tmdb_" + kind + "_id&search_value=" + id, watchmodeKey()))
+                .optJSONArray("title_results");
+        if (found != null && found.length() > 0) {
+            JSONArray sources = new JSONArray(watchmode("/title/" + found.getJSONObject(0).getInt("id") + "/sources/?regions=" + REGION, watchmodeKey()));
+            String[] service = null;
+            for (String[] s : SERVICES) if (s[1].equals(appKey)) service = s;
+            for (String[] s : byName) if (s[1].equals(appKey)) service = s;
+            for (int i = 0; service != null && i < sources.length() && link.isEmpty(); i++) {
+                JSONObject s = sources.getJSONObject(i);
+                String words = s.optString("name").toLowerCase(Locale.ROOT), name = words.replace(" ", "");
+                String want = service[0].replace(" ", "");
+                // Not a channel sold inside another app ("AppleTV+ Amazon Channel", "Paramount+ (Via Amazon Prime)"):
+                // that link opens Amazon or Apple's app, not the one the pick is for.
+                boolean resold = name.contains("channel") || name.contains("(via");
+                // Max as a word, as for TMDB's providers: Watchmode calls it "HBO Max" again, and Cinemax isn't it.
+                boolean same = !resold && (want.equals("max") ? words.matches(".*\\bmax\\b.*")
+                        : WHOLE_NAME.contains(want) ? name.equals(want) : name.contains(want));
+                if (same && s.optString("type").equals("sub") && s.optString("web_url").startsWith("https://")) link = s.optString("web_url");
+            }
+        }
+        return link;
     }
 
     private static String watchmode(String path, String key) throws IOException {

@@ -21,6 +21,10 @@
          returns null). The shelf and streaming apps, the live TV apps and, through the <intent>, every TV app
          (for "All Apps"). -->
     <queries>
+        <!-- Search's Speak button: whether the TV has a speech service. -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
         <!-- Optional App Store top button: Google Play or Amazon Appstore. -->
         <package android:name="com.android.vending" />
         <package android:name="com.amazon.venezia" />
@@ -120,6 +124,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Search: find a title, see which of the TV's apps have it, save it to My list. Opened by the Home screen's Search button. -->
+        <activity
+            android:name=".SearchActivity"
+            android:process=":home"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.shawnxe7en.myowntv.search"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="stateHidden|adjustResize"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
+            android:theme="@style/MyOwnTV.Home" />
 
         <activity
             android:name=".QuickSettingsActivity"

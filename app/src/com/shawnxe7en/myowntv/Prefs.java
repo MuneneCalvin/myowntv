@@ -436,6 +436,11 @@ final class Prefs {
     static boolean shelfRecent() { return sp().getBoolean("shelfRecent", false); }
     static void setShelfRecent(boolean on) { put("shelfRecent", on); }
 
+    // MARK: - My list (saved from Search; MyList's lines)
+
+    static String myList() { return sp().getString("myList", ""); }
+    static void setMyList(String lines) { put("myList", lines); }
+
     // MARK: - Top buttons
 
     /**

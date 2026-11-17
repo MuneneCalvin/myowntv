@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Search: a round Search button on the Home screen. Type or say a title; it shows which of your TV's streaming apps have it in your country, opens the app on it, and can save it to My list (needs your free TMDB key).
+
 ## 1.1.0
 - New MyOwnTV icon and banner, also on the Settings screen and the dock tile.
 - The glass clock's colon glows softly like a heartbeat (Android 13 and newer).

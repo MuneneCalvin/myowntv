@@ -2,6 +2,7 @@
 
 ## Unreleased
 - Search: a round Search button on the Home screen. Type or say a title; it shows which of your TV's streaming apps have it in your country, opens the app on it, and can save it to My list (needs your free TMDB key).
+- The City box in Home Settings now credits Open-Meteo.com and GeoNames, as their licence (CC BY 4.0) asks.
 
 ## 1.1.0
 - New MyOwnTV icon and banner, also on the Settings screen and the dock tile.

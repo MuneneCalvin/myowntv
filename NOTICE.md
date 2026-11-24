@@ -13,7 +13,7 @@ Eight more scenes are photos from **Pexels** (https://www.pexels.com/license/): 
 reposted as stock or wallpaper. The photographers are listed in `app/assets/scenes/CREDITS.txt`.
 
 Fonts: **Inter** (SIL Open Font License, `app/assets/fonts/OFL.txt`), **Antonio** (SIL Open Font License,
-`app/assets/fonts/OFL-Antonio.txt`) and **Dancing Script** (SIL Open Font License, `app/assets/fonts/OFL-DancingScript.txt`). The weather data is from Open-Meteo, picks from TMDB (this product uses the TMDB API
+`app/assets/fonts/OFL-Antonio.txt`) and **Dancing Script** (SIL Open Font License, `app/assets/fonts/OFL-DancingScript.txt`). The weather data is from Open-Meteo.com (CC BY 4.0; its place search is based on GeoNames, CC BY 4.0), picks from TMDB (this product uses the TMDB API
 but is not endorsed or certified by TMDB), and where a title opens from Watchmode.
 
 This fork is independent and is not affiliated with or endorsed by either project. It must not use their names,

@@ -471,5 +471,6 @@
  "Movie": "Movie",
  "Checking your apps…": "Checking your apps…",
  "Not on your apps": "Not on your apps",
- "On {apps}": "On {apps}"
+ "On {apps}": "On {apps}",
+ "Weather data by Open-Meteo.com. Place search based on GeoNames.": "Weather data by Open-Meteo.com. Place search based on GeoNames."
 }

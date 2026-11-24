@@ -1392,6 +1392,7 @@ public class SettingsActivity extends Activity {
             field.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
             AlertDialog dialog = new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                     .setTitle(Ui.tr("City"))
+                    .setMessage(Ui.tr("Weather data by Open-Meteo.com. Place search based on GeoNames."))   // Open-Meteo's CC BY 4.0 asks for the credit
                     .setView(field)
                     .setPositiveButton(Ui.tr("Search"), (d, which) -> searchCity(field.getText().toString()))
                     .setNegativeButton(Ui.tr("Cancel"), null)

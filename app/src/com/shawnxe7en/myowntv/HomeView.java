@@ -1033,6 +1033,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         noticeSub = Ui.text(Ui.regular, 23 * k, 0xB8FFFFFF);
         noticeLabel = Ui.text(Ui.semibold, 26 * k, 0xFFFFFFFF);
         noticeLabel.setTextAlign(Paint.Align.CENTER);
+        pillTitle = Ui.text(Ui.semibold, 28 * k, 0xFFFFFFFF);
+        pillSub = Ui.text(Ui.regular, 21 * k, 0xB8FFFFFF);
         post(this::showUpdateNotice);   // a start of the app: the first resume came before these paints existed
         if (menuOpen) layoutMenu();
         shadow.setMaskFilter(new BlurMaskFilter(SHADOW_BLUR * k, BlurMaskFilter.Blur.NORMAL));
@@ -1827,58 +1829,147 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private Quotes quotes;
 
     private NowPlaying.Watch nowWatch;
-    private String npFit, npFitFor;
-    private float npFitMax, npFitSize, npFitWidth;
+    private final RectF pillRect = new RectF(), pillArt = new RectF();
+    private final android.graphics.Path pillClip = new android.graphics.Path();
+    private final android.graphics.Rect pillSrc = new android.graphics.Rect();
+    private Paint pillTitle, pillSub;
+    private String pillFitFor = "", pillTitleFit = "", pillSubFit = "";
+    private float pillFitRoom;
+    private Bitmap pillIcon;
+    private String pillIconPkg = "";
 
     private NowPlaying.Watch nowWatch() {
         if (nowWatch == null) nowWatch = new NowPlaying.Watch(getContext(), this::invalidate);
         return nowWatch;
     }
 
-    /** What Now Playing shows in the prices' place, or null (setting off, nothing playing, nothing from today). */
-    private String nowLine() {
-        return NowPlaying.display(getContext(), nowWatch);
+    /** Whether Now Playing has something to show in the prices' place: a session, or the last one from today. */
+    private boolean pillShown() {
+        if (!Prefs.nowPlaying()) return false;
+        return nowWatch != null && nowWatch.track() != null || NowPlaying.last(getContext()) != null;
     }
 
-    /** Now Playing in the prices' row, right-aligned like them: level bars, then the line (dimmed when only the last played). */
-    private void drawNowPlaying(Canvas c, String line) {
-        boolean clock = clockMode(), live = nowWatch != null && nowWatch.line() != null;
-        applyTone();
-        Paint text = clock ? lClockQuote : lQuote;
-        // As the prices: the corner buttons' names appear in this row, so the line fades out while one has focus.
+    /** The app's own icon, decoded once, for a track that has no art. */
+    private Bitmap appIcon(String pkg) {
+        if (pkg == null) return null;
+        if (!pkg.equals(pillIconPkg)) {
+            pillIconPkg = pkg;
+            pillIcon = null;
+            try {
+                android.graphics.drawable.Drawable d = getContext().getPackageManager().getApplicationIcon(pkg);
+                int s = Math.round(96 * k);
+                Bitmap b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
+                Canvas bc = new Canvas(b);
+                d.setBounds(0, 0, s, s);
+                d.draw(bc);
+                pillIcon = b;
+            } catch (Exception e) {
+                pillIcon = null;
+            }
+        }
+        return pillIcon;
+    }
+
+    /**
+     * Now Playing in the prices' place: a glass pill (the toast's glass) with the art or the app's icon, the title, the
+     * artist and app under it, and a thin line for how far along the track is. Paused or only the last played: dimmer,
+     * with a play mark on the art. It fades out while a corner button has focus, as the prices do.
+     */
+    private void drawPill(Canvas c) {
+        boolean clock = clockMode();
         float fade = 1;
         for (int i = 3; i < 3 + lightButtons.size() && !clock; i++) fade = Math.min(fade, 1 - Ui.clamp(topFocus[i].value));
-        if (fade <= 0.01f) return;
-        float cap = Ui.cap(text), barsW = cap * 0.24f * 3 + cap * 0.24f * 0.7f * 2, gap = 10 * k;
-        float right = CONTENT_R * k, maxText = Math.min(getWidth() * 0.4f, right - MARGIN * k - barsW - gap);
-        // Fitted once per line and size: measuring text in this row on every frame is what the prices' cache avoids.
-        if (!line.equals(npFitFor) || maxText != npFitMax || text.getTextSize() != npFitSize) {
-            npFit = android.text.TextUtils.ellipsize(line, new android.text.TextPaint(text), maxText,
-                    android.text.TextUtils.TruncateAt.END).toString();
-            npFitFor = line;
-            npFitMax = maxText;
-            npFitSize = text.getTextSize();
-            npFitWidth = text.measureText(npFit);
+        if (fade <= 0.01f || pillTitle == null) return;
+        NowPlaying.Track t = nowWatch == null ? null : nowWatch.track();
+        String title, sub, pkg = t == null ? NowPlaying.lastPackage(getContext()) : t.pkg;
+        boolean live = t != null && t.playing;
+        if (t != null) {
+            title = t.title.isEmpty() ? t.artist : t.title;
+            sub = t.title.isEmpty() ? t.app : (t.artist.isEmpty() ? t.app : t.artist + " \u00b7 " + t.app);
+        } else {
+            title = NowPlaying.last(getContext());
+            sub = Ui.tr("Last played");
         }
-        String fit = npFit;
-        float base = clock ? L_QUOTES_BASE * k : (L_TABBAR_TOP + L_TABBAR_H / 2) * k + cap / 2;
-        float x = clock ? MARGIN * k : right - barsW - gap - npFitWidth;
-        int color = text.getColor();
-        text.setColor(Ui.alpha(color, (live ? 1f : 0.6f) * fade));
-        NowPlaying.bars(c, x, base, cap, text, live && nowWatch.playing(), SystemClock.uptimeMillis());
-        Paint.Align was = text.getTextAlign();
-        text.setTextAlign(Paint.Align.LEFT);
-        c.drawText(fit, x + barsW + gap, base, text);
-        text.setTextAlign(was);
-        text.setColor(color);
-        if (live) postInvalidateDelayed(80, (int) x, (int) (base - cap * 1.2f), (int) (x + barsW) + 1, (int) (base + cap * 0.3f));   // the bars move: only their corner
+        float pw = 560 * k, ph = 104 * k, right = CONTENT_R * k;
+        float left = clock ? MARGIN * k : right - pw, top = clock ? L_QUOTES_BASE * k - ph / 2 : 158 * k;
+        pillRect.set(left, top, left + pw, top + ph);
+        float pad = 16 * k, art = ph - 2 * pad, r = 34 * k;
+        pillArt.set(left + pad, top + pad, left + pad + art, top + pad + art);
+        float tx = pillArt.right + 18 * k, room = left + pw - pad - tx;
+        // Fitted once per text and width: measuring text on every frame is what the prices' cache avoids.
+        if (!(title + "\n" + sub).equals(pillFitFor) || room != pillFitRoom) {
+            pillTitleFit = TextUtils.ellipsize(title, new TextPaint(pillTitle), room, TextUtils.TruncateAt.END).toString();
+            pillSubFit = TextUtils.ellipsize(sub, new TextPaint(pillSub), room, TextUtils.TruncateAt.END).toString();
+            pillFitFor = title + "\n" + sub;
+            pillFitRoom = room;
+        }
+        float dim = live ? 1f : 0.62f;
+        int layer = c.saveLayerAlpha(left - 40 * k, top - 40 * k, left + pw + 40 * k, top + ph + 60 * k, Math.round(255 * fade));
+        tmp.set(pillRect);
+        tmp.offset(0, 10 * k);
+        shadowDeep.setColor(Ui.alpha(0xFF000000, 0.32f));
+        shadows.draw(c, tmp, r, DEEP_BLUR * k, shadowDeep);
+        scene.glass(c, pillRect, r, SMOKE, 0.55f, 0, 0, 0.02f, 1);
+        border.setColor(0x2EFFFFFF);
+        c.drawRoundRect(pillRect, r, r, border);
+        // The art (its middle, square), or the app's icon on a dark tile.
+        Bitmap img = t != null ? t.art : null;
+        float ar = 20 * k;
+        pillClip.reset();
+        pillClip.addRoundRect(pillArt, ar, ar, android.graphics.Path.Direction.CW);
+        c.save();
+        c.clipPath(pillClip);
+        fill.setShader(null);
+        fill.setColor(0xFF2C2C34);
+        c.drawRect(pillArt, fill);
+        Bitmap shown = img != null ? img : appIcon(pkg);
+        if (shown != null) {
+            int bw = shown.getWidth(), bh = shown.getHeight(), side = Math.min(bw, bh);
+            pillSrc.set((bw - side) / 2, (bh - side) / 2, (bw + side) / 2, (bh + side) / 2);
+            imagePaint.setAlpha(Math.round(255 * dim));
+            if (img == null) {   // an icon: inset, on the tile
+                tmp.set(pillArt);
+                tmp.inset(art * 0.14f, art * 0.14f);
+                c.drawBitmap(shown, pillSrc, tmp, imagePaint);
+            } else {
+                c.drawBitmap(shown, pillSrc, pillArt, imagePaint);
+            }
+            imagePaint.setAlpha(255);
+        }
+        if (!live) {   // a play mark on the art
+            float cx = pillArt.centerX(), cy = pillArt.centerY(), s = art * 0.17f;
+            fill.setColor(0xE6FFFFFF);
+            pillClip.reset();
+            pillClip.moveTo(cx - s * 0.7f, cy - s);
+            pillClip.lineTo(cx - s * 0.7f, cy + s);
+            pillClip.lineTo(cx + s, cy);
+            pillClip.close();
+            c.drawPath(pillClip, fill);
+        }
+        c.restore();
+        pillTitle.setAlpha(Math.round(255 * dim));
+        pillSub.setAlpha(Math.round(0xB8 * dim));
+        c.drawText(pillTitleFit, tx, top + 44 * k, pillTitle);
+        c.drawText(pillSubFit, tx, top + 76 * k, pillSub);
+        float p = t == null ? -1 : NowPlayingControls.progress(t.position, t.duration, t.updatedAt, t.speed,
+                SystemClock.elapsedRealtime(), t.playing);
+        if (p >= 0) {
+            float ly = top + ph - 9 * k, lx = left + pad + 4 * k, lw = pw - 2 * pad - 8 * k, lh = 3 * k;
+            tmp.set(lx, ly - lh / 2, lx + lw, ly + lh / 2);
+            fill.setColor(0x2EFFFFFF);
+            c.drawRoundRect(tmp, lh / 2, lh / 2, fill);
+            tmp.right = lx + lw * p;
+            fill.setColor(Ui.alpha(0xFFFFFFFF, 0.85f * dim));
+            if (tmp.width() > 0) c.drawRoundRect(tmp, lh / 2, lh / 2, fill);
+        }
+        c.restoreToCount(layer);
+        if (live) postInvalidateDelayed(1000, (int) left, (int) (top + ph - 24 * k), (int) (left + pw) + 1, (int) (top + ph) + 1);   // the progress line moves
     }
 
     /** Coin logo + price in the configured currency, in a row at the right end of the tab bar. */
     private void drawQuotes(Canvas c) {
-        String now = nowLine();
-        if (now != null) {
-            drawNowPlaying(c, now);
+        if (pillShown()) {
+            drawPill(c);
             return;
         }
         boolean clock = clockMode();
@@ -5055,7 +5146,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (clockMode()) {
             titleRight = 0;
             drawClock(c);
-            if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
+            if (HomeData.coinCount() > 0 || pillShown()) drawQuotes(c);
             return;
         }
         if (keepRow()) {   // Couch TV's home: the date and weather, the clock (on the sky layer), "Keep watching" and its row
@@ -5063,7 +5154,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             sceneText().setTextAlign(Paint.Align.LEFT);
             c.drawText(Ui.tr("Continue Watching"), MARGIN * k, (KEEP_Y - 26) * k, sceneText());
             drawWatchRow(c);
-            if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
+            if (HomeData.coinCount() > 0 || pillShown()) drawQuotes(c);
             return;
         }
         if (picksRow()) {   // the TMDB picks as a row of glass cards under the clock, its tabs above the row
@@ -5074,7 +5165,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             for (int i = 0; i < cardSlots; i++) if (cardFocus[i].value > 0.02f && (topCard < 0 || cardFocus[i].value > cardFocus[topCard].value)) topCard = i;
             for (int i = 0; i < cardSlots; i++) if (i != topCard) drawPickCard(c, i);
             if (topCard >= 0) drawPickCard(c, topCard);
-            if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
+            if (HomeData.coinCount() > 0 || pillShown()) drawQuotes(c);
             return;
         }
         String hello = picksMode() ? Ui.tr("For You") : Ui.tr("Continue Watching");
@@ -5082,7 +5173,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         titleRight = MARGIN * k + lTitle.measureText(hello);
         if (!picksMode()) {
             if (continueMode()) drawWatchRow(c);
-            if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
+            if (HomeData.coinCount() > 0 || pillShown()) drawQuotes(c);
             return;
         }
         // Text tabs (the selected one in bold, in the main text color); with focus on the tabs, the selected one gets
@@ -5115,7 +5206,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         for (int i = 0; i < slots; i++) if (cardFocus[i].value > 0.02f && (top < 0 || cardFocus[i].value > cardFocus[top].value)) top = i;
         for (int i = 0; i < slots; i++) if (i != top) drawLightCard(c, i);
         if (top >= 0) drawLightCard(c, top);
-        if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
+        if (HomeData.coinCount() > 0 || pillShown()) drawQuotes(c);
     }
 
     private boolean picksOn() {

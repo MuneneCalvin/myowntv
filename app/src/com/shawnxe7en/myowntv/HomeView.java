@@ -129,7 +129,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static String[] tabs;
     private static int tabsGeneration = -1;
     private static final String[] TAB_KIND = {null, "movie", "tv"};
-    private static final int Z_TOP = 4, Z_CARDS = 5, Z_WATCH = 6;
+    private static final int Z_TOP = 4, Z_CARDS = 5, Z_WATCH = 6, Z_PILL = 20;   // the Now Playing pill, under the corner buttons
 
     private final Activity activity;
     private final Scene scene = new Scene();
@@ -219,6 +219,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private static final float MENU_W = 720, MENU_PAD = 44, MENU_INSET = 16, MENU_ROW = 76, MENU_STEP = 80, MENU_R = 36;
     private final Spring menu = new Spring(0.26f, 0.86f, 0), menuPick = new Spring(0.22f, 0.9f, 0);
     private String[] menuOptions = new String[3];
+    private boolean menuPlayer;   // the menu is Now Playing's card (previous, play or pause, next) over the pill
+    private String playerPkg = "";
+    private static final float PLAYER_W = 760, PLAYER_H = 380;
+    private final RectF[] playerBtn = {new RectF(), new RectF(), new RectF()};
+    private Paint playerTitle, playerSub, playerTime;
     private String menuUpdate = "";   // the version, while the menu is the update notice (Install / Later); "" for a card's menu
     private final RectF menuPanel = new RectF();
     // The update notice (menuUpdate): a glass card at the top right with the app's icon, the text and two buttons.
@@ -1033,6 +1038,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         noticeSub = Ui.text(Ui.regular, 23 * k, 0xB8FFFFFF);
         noticeLabel = Ui.text(Ui.semibold, 26 * k, 0xFFFFFFFF);
         noticeLabel.setTextAlign(Paint.Align.CENTER);
+        playerTitle = Ui.text(Ui.semibold, 36 * k, 0xFFFFFFFF);
+        playerSub = Ui.text(Ui.regular, 25 * k, 0xB8FFFFFF);
+        playerTime = Ui.numbers(Ui.regular, 21 * k, 0x99FFFFFF);
         pillTitle = Ui.text(Ui.semibold, 28 * k, 0xFFFFFFFF);
         pillSub = Ui.text(Ui.regular, 21 * k, 0xB8FFFFFF);
         post(this::showUpdateNotice);   // a start of the app: the first resume came before these paints existed
@@ -1830,6 +1838,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private NowPlaying.Watch nowWatch;
     private final RectF pillRect = new RectF(), pillArt = new RectF();
+    private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final android.graphics.Path pillClip = new android.graphics.Path();
     private final android.graphics.Rect pillSrc = new android.graphics.Rect();
     private Paint pillTitle, pillSub;
@@ -1839,8 +1848,34 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private String pillIconPkg = "";
 
     private NowPlaying.Watch nowWatch() {
-        if (nowWatch == null) nowWatch = new NowPlaying.Watch(getContext(), this::invalidate);
+        if (nowWatch == null) nowWatch = new NowPlaying.Watch(getContext(), this::pillChanged);
         return nowWatch;
+    }
+
+    /** The sessions changed: the pill may be gone (take its focus back) and the player card may be about another app. */
+    private void pillChanged() {
+        NowPlaying.Track t = nowWatch == null ? null : nowWatch.track();
+        if (menuOpen && menuPlayer && (t == null || !t.pkg.equals(playerPkg))) closeMenu(false);
+        if (zone == Z_PILL && !pillShown()) {
+            zone = Z_TOP;
+            topIndex = lightButtons.isEmpty() ? tab : 3;
+            retarget(false);
+        }
+        if (menuOpen && menuPlayer) menuLayer.invalidate();
+        invalidate();
+    }
+
+    /** OK on the pill: the controls card for a session, or the app itself for what was last played. */
+    private void activatePill() {
+        NowPlaying.Track t = nowWatch == null ? null : nowWatch.track();
+        if (t != null) {
+            openPlayer(t);
+            return;
+        }
+        String pkg = NowPlaying.lastPackage(activity);
+        if (pkg == null) return;
+        click.open();
+        if (!openApp(new WatchNext.Item(pkg, null, null))) showToast(Ui.trf("Couldn't open {app}.", "app", pkg));
     }
 
     /** Whether Now Playing has something to show in the prices' place: a session, or the last one from today. */
@@ -1879,7 +1914,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         boolean clock = clockMode();
         float fade = 1;
         for (int i = 3; i < 3 + lightButtons.size() && !clock; i++) fade = Math.min(fade, 1 - Ui.clamp(topFocus[i].value));
-        if (fade <= 0.01f || pillTitle == null) return;
+        if (fade <= 0.01f || pillTitle == null || menuOpen && menuPlayer) return;   // the card covers it
         NowPlaying.Track t = nowWatch == null ? null : nowWatch.track();
         String title, sub, pkg = t == null ? NowPlaying.lastPackage(getContext()) : t.pkg;
         boolean live = t != null && t.playing;
@@ -1912,6 +1947,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         scene.glass(c, pillRect, r, SMOKE, 0.55f, 0, 0, 0.02f, 1);
         border.setColor(0x2EFFFFFF);
         c.drawRoundRect(pillRect, r, r, border);
+        if (zone == Z_PILL && !sheetOpen && !menuOpen) {   // focused: a white ring
+            ring.setStyle(Paint.Style.STROKE);
+            ring.setStrokeWidth(3.5f * k);
+            ring.setColor(0xF2FFFFFF);
+            tmp.set(pillRect);
+            tmp.inset(-4 * k, -4 * k);
+            c.drawRoundRect(tmp, r + 4 * k, r + 4 * k, ring);
+        }
         // The art (its middle, square), or the app's icon on a dark tile.
         Bitmap img = t != null ? t.art : null;
         float ar = 20 * k;
@@ -3525,6 +3568,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             }
             it = lightButtons.get(topIndex - 3);
             r = topRects[topIndex];
+        } else if (zone == Z_PILL) {
+            activatePill();
+            return;
         } else if (zone == Z_WATCH) {
             if (watchIndex >= watching.size()) return;
             click.open();
@@ -4750,6 +4796,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** The panel, centered on the screen: title, the app's name (if known) and the three options. */
     private void layoutMenu() {
+        if (menuPlayer) {
+            layoutPlayer();
+            return;
+        }
         if (!menuUpdate.isEmpty()) {
             layoutNotice();
             return;
@@ -4772,6 +4822,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     private void menuRow(int i, RectF out) {
+        if (menuPlayer) {
+            out.set(playerBtn[Math.max(0, Math.min(2, i))]);
+            return;
+        }
         if (!menuUpdate.isEmpty()) {
             out.set(noticeBtn[Math.max(0, Math.min(1, i))]);
             return;
@@ -4785,6 +4839,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (!menuOpen && !snap) return;
         boolean was = menuOpen;
         menuOpen = false;
+        if (menuPlayer) heroLayer.invalidate();   // the pill comes back
+        menuPlayer = false;
         menu.target = 0;
         if (snap) {
             menu.snap(0);
@@ -4797,6 +4853,34 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private boolean menuKey(KeyEvent e) {
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+        if (menuPlayer) {   // Left and Right choose a button, OK presses it, anything else puts the card away
+            switch (e.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    if (down) moveMenu(e.getKeyCode() == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                    if (down) {
+                        if (e.getRepeatCount() == 0) okDown = true;
+                    } else {
+                        if (okDown && !e.isCanceled() && spoken.keyClick()) pickMenu();
+                        okDown = false;
+                    }
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_UP:
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                case KeyEvent.KEYCODE_BACK:
+                    if (down) {
+                        closeMenu(false);
+                        click.move();
+                    }
+                    return true;
+                default:
+                    return false;
+            }
+        }
         switch (e.getKeyCode()) {
             case KeyEvent.KEYCODE_DPAD_UP:
                 if (!menuUpdate.isEmpty()) {   // out of the notice's way: the same as Later
@@ -4854,6 +4938,159 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         closeMenu(false);
     }
 
+    private static boolean playerEnabled(NowPlaying.Track t, int button) {
+        return button == 0 ? NowPlayingControls.canPrevious(t.actions) : button == 1 ? NowPlayingControls.canToggle(t.actions)
+                : NowPlayingControls.canNext(t.actions);
+    }
+
+    /** The controls card over the pill: opens on the play/pause button (or the first the app offers). */
+    private void openPlayer(NowPlaying.Track t) {
+        if (menuOpen || sheetOpen || drawerOpen || reordering || playerTitle == null) return;
+        playerPkg = t.pkg;
+        menuItem = null;
+        menuUpdate = "";
+        menuPlayer = true;
+        menuOptions = new String[] {Ui.tr("Previous"), Ui.tr("Play or pause"), Ui.tr("Next")};
+        menuTitle = "";
+        menuSub = "";
+        layoutMenu();
+        menuOpen = true;
+        heroLayer.invalidate();
+        menuIndex = playerEnabled(t, 1) ? 1 : playerEnabled(t, 0) ? 0 : 2;
+        menuPick.snap(menuIndex);
+        menu.target = 1;
+        menuLayer.setVisibility(VISIBLE);
+        menuLayer.invalidate();
+        wake();
+        click.open();
+        spoken.focusMoved();
+    }
+
+    private void layoutPlayer() {
+        float right = CONTENT_R * k, top = 150 * k, left = right - PLAYER_W * k;
+        menuPanel.set(left, top, right, top + PLAYER_H * k);
+        float d = 92 * k, cy = menuPanel.bottom - 28 * k - d / 2, cx = menuPanel.centerX(), gap = 150 * k;
+        for (int i = 0; i < 3; i++) playerBtn[i].set(cx + (i - 1) * gap - d / 2, cy - d / 2, cx + (i - 1) * gap + d / 2, cy + d / 2);
+    }
+
+    private static String mmss(long ms) {
+        long s = Math.max(0, ms) / 1000;
+        return (s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60);
+    }
+
+    /** One of the three control glyphs, centred at (cx, cy), `s` the half-size. kind: 0 previous, 1 play or pause, 2 next. */
+    private void drawGlyph(Canvas c, int kind, boolean playing, float cx, float cy, float s, int color) {
+        fill.setShader(null);
+        fill.setColor(color);
+        android.graphics.Path path = pillClip;
+        path.reset();
+        if (kind == 1 && playing) {   // pause: two bars
+            float bw = s * 0.42f;
+            tmp.set(cx - s * 0.62f, cy - s * 0.85f, cx - s * 0.62f + bw, cy + s * 0.85f);
+            c.drawRoundRect(tmp, bw / 4, bw / 4, fill);
+            tmp.set(cx + s * 0.62f - bw, cy - s * 0.85f, cx + s * 0.62f, cy + s * 0.85f);
+            c.drawRoundRect(tmp, bw / 4, bw / 4, fill);
+            return;
+        }
+        if (kind == 1) {   // play
+            path.moveTo(cx - s * 0.62f, cy - s * 0.9f);
+            path.lineTo(cx - s * 0.62f, cy + s * 0.9f);
+            path.lineTo(cx + s * 0.9f, cy);
+        } else {
+            float f = kind == 0 ? -1 : 1;   // previous points left, next right; the bar is at the tip's side
+            path.moveTo(cx - f * s * 0.6f, cy - s * 0.85f);
+            path.lineTo(cx - f * s * 0.6f, cy + s * 0.85f);
+            path.lineTo(cx + f * s * 0.55f, cy);
+            float bw = s * 0.26f, bx = cx + f * s * 0.78f;
+            tmp.set(bx - bw / 2, cy - s * 0.85f, bx + bw / 2, cy + s * 0.85f);
+            c.drawRect(tmp, fill);
+        }
+        path.close();
+        c.drawPath(path, fill);
+    }
+
+    /** The controls card: art, title, artist · app, progress with times, and three round glass buttons. */
+    private void drawPlayer(Canvas c, float v, float a) {
+        NowPlaying.Track t = nowWatch == null ? null : nowWatch.track();
+        if (t == null) return;
+        RectF p = menuPanel;
+        float r = 40 * k;
+        c.save();
+        c.translate((1 - Ui.clamp(v)) * 40 * k, 0);
+        int layer = c.saveLayerAlpha(p.left - 48 * k, p.top - 48 * k, p.right + 64 * k, p.bottom + 72 * k, Math.round(255 * a));
+        tmp.set(p);
+        tmp.offset(0, 16 * k);
+        shadowDeep.setColor(Ui.alpha(0xFF000000, 0.5f));
+        shadows.draw(c, tmp, r, DEEP_BLUR * k, shadowDeep);
+        scene.glass(c, p, r, SMOKE, 0.62f, 0, 0, 0.02f, 1);
+        border.setColor(0x2EFFFFFF);
+        c.drawRoundRect(p, r, r, border);
+        // The art (or the app's icon) at the left, the text beside it.
+        float pad = 28 * k, art = 150 * k;
+        pillArt.set(p.left + pad, p.top + pad, p.left + pad + art, p.top + pad + art);
+        pillClip.reset();
+        pillClip.addRoundRect(pillArt, 28 * k, 28 * k, android.graphics.Path.Direction.CW);
+        c.save();
+        c.clipPath(pillClip);
+        fill.setShader(null);
+        fill.setColor(0xFF2C2C34);
+        c.drawRect(pillArt, fill);
+        Bitmap shown = t.art != null ? t.art : appIcon(t.pkg);
+        if (shown != null) {
+            int side = Math.min(shown.getWidth(), shown.getHeight());
+            pillSrc.set((shown.getWidth() - side) / 2, (shown.getHeight() - side) / 2, (shown.getWidth() + side) / 2, (shown.getHeight() + side) / 2);
+            tmp.set(pillArt);
+            if (t.art == null) tmp.inset(art * 0.14f, art * 0.14f);
+            imagePaint.setAlpha(t.playing ? 255 : 160);
+            c.drawBitmap(shown, pillSrc, tmp, imagePaint);
+            imagePaint.setAlpha(255);
+        }
+        c.restore();
+        float tx = pillArt.right + pad, room = p.right - pad - tx;
+        String title = t.title.isEmpty() ? t.artist : t.title;
+        String sub = t.title.isEmpty() || t.artist.isEmpty() ? t.app : t.artist + " \u00b7 " + t.app;
+        c.drawText(TextUtils.ellipsize(title, new TextPaint(playerTitle), room, TextUtils.TruncateAt.END).toString(),
+                tx, p.top + pad + 60 * k, playerTitle);
+        c.drawText(TextUtils.ellipsize(sub, new TextPaint(playerSub), room, TextUtils.TruncateAt.END).toString(),
+                tx, p.top + pad + 106 * k, playerSub);
+        // Progress, with the times under its ends (nothing for a live stream).
+        float now = SystemClock.elapsedRealtime();
+        float prog = NowPlayingControls.progress(t.position, t.duration, t.updatedAt, t.speed, (long) now, t.playing);
+        float ly = p.top + pad + art + 30 * k, lx = p.left + pad, lw = p.width() - 2 * pad, lh = 5 * k;
+        if (prog >= 0) {
+            tmp.set(lx, ly - lh / 2, lx + lw, ly + lh / 2);
+            fill.setColor(0x2EFFFFFF);
+            c.drawRoundRect(tmp, lh / 2, lh / 2, fill);
+            tmp.right = lx + lw * prog;
+            fill.setColor(0xF2FFFFFF);
+            if (tmp.width() > 0) c.drawRoundRect(tmp, lh / 2, lh / 2, fill);
+            playerTime.setTextAlign(Paint.Align.LEFT);
+            c.drawText(mmss((long) (prog * t.duration)), lx, ly + 34 * k, playerTime);
+            playerTime.setTextAlign(Paint.Align.RIGHT);
+            c.drawText(mmss(t.duration), lx + lw, ly + 34 * k, playerTime);
+        }
+        // The three buttons: the picked one a white disc that slides, glyph dark on it; the ones the app lacks, faint.
+        float pick = menuPick.value;
+        RectF b0 = playerBtn[0], b1 = playerBtn[1];
+        for (int i = 0; i < 3; i++) {
+            boolean on = playerEnabled(t, i);
+            fill.setColor(Ui.alpha(0x1FFFFFFF, on ? 1f : 0.45f));
+            c.drawCircle(playerBtn[i].centerX(), playerBtn[i].centerY(), playerBtn[i].width() / 2, fill);
+        }
+        float px = b0.centerX() + (b1.centerX() - b0.centerX()) * pick;
+        fill.setColor(0xFFFFFFFF);
+        c.drawCircle(px, b0.centerY(), b0.width() / 2, fill);
+        for (int i = 0; i < 3; i++) {
+            float f = Ui.clamp(1 - Math.abs(pick - i));
+            int color = blend(0xFFFFFFFF, 0xFF1C1C1E, f);
+            if (!playerEnabled(t, i)) color = Ui.alpha(color, 0.38f);
+            drawGlyph(c, i, t.playing, playerBtn[i].centerX(), playerBtn[i].centerY(), 21 * k, color);
+        }
+        c.restoreToCount(layer);
+        c.restore();
+        if (t.playing && prog >= 0) menuLayer.postInvalidateDelayed(500);   // the progress moves
+    }
+
     /**
      * The Home screen says, on a resume, that an update is ready and checked (Updates): a notice with Install and Later,
      * not again for 3 days after either (UpdateRules.shouldShow). Never over the drawer, the sheet or another menu.
@@ -4888,6 +5125,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private void moveMenu(int d) {
         int next = Math.max(0, Math.min(menuOptions.length - 1, menuIndex + d));
+        if (menuPlayer) {   // past the buttons the app doesn't offer
+            NowPlaying.Track t = nowWatch == null ? null : nowWatch.track();
+            while (t != null && next != menuIndex && !playerEnabled(t, next)) {
+                int further = next + d;
+                if (further < 0 || further >= menuOptions.length) { next = menuIndex; break; }
+                next = further;
+            }
+        }
         if (next == menuIndex) return;
         menuIndex = next;
         menuPick.target = next;
@@ -4900,6 +5145,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void pickMenu() {
         WatchNext.Item it = menuItem;
         int choice = menuIndex;
+        if (menuPlayer) {   // the card stays; the session's state comes back through the Watch and redraws it
+            NowPlaying.Track t = nowWatch == null ? null : nowWatch.track();
+            if (t != null && playerEnabled(t, choice)) {
+                click.open();
+                nowWatch.command(choice == 0 ? NowPlaying.PREVIOUS : choice == 1 ? NowPlaying.TOGGLE : NowPlaying.NEXT);
+            }
+            return;
+        }
         if (!menuUpdate.isEmpty()) {   // the update notice: Install or Later (either way not again for 3 days, so Android's installer being cancelled does not bring it back)
             String version = menuUpdate;
             closeMenu(false);
@@ -4944,6 +5197,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private void drawMenu(Canvas c) {
         float v = menu.value, a = Ui.clamp(v);
         if (a <= 0.004f) return;
+        if (menuPlayer) {
+            drawPlayer(c, v, a);
+            return;
+        }
         if (!menuUpdate.isEmpty()) {
             drawNotice(c, v, a);
             return;
@@ -5489,6 +5746,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                 }
                 break;
             case Z_TOP:
+                if (dy > 0 && topIndex >= 3 && pillShown()) {   // the pill hangs right under the corner buttons
+                    zone = Z_PILL;
+                    break;
+                }
                 if (dx != 0 && !picksMode() && topIndex + dx < 3) return true;   // no tabs to the left
                 if (dy > 0 && !picksMode()) {
                     zone = continueMode() && !watching.isEmpty() ? Z_WATCH : Z_SHELF;
@@ -5510,6 +5771,18 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                     topIndex = 3;   // up from the tabs reaches the corner buttons without walking the row
                 } else {
                     return true;
+                }
+                break;
+            case Z_PILL:
+                if (dx != 0) return true;
+                if (dy < 0) {
+                    zone = Z_TOP;
+                    topIndex = lightButtons.isEmpty() ? tab : 3;
+                } else if (picksMode() && !cards.isEmpty()) {
+                    zone = Z_CARDS;
+                    cardIndex = nearest(cardRects, cards.size(), pillRect.centerX());
+                } else {
+                    zone = continueMode() && !watching.isEmpty() ? Z_WATCH : Z_SHELF;
                 }
                 break;
             default:

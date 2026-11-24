@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 - Search: a round Search button on the Home screen. Type or say a title; it shows which of your TV's streaming apps have it in your country, opens the app on it, and can save it to My list (needs your free TMDB key).
 - The City box in Home Settings now credits Open-Meteo.com and GeoNames, as their licence (CC BY 4.0) asks.
 

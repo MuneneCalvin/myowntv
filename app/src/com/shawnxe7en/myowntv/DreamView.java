@@ -42,6 +42,8 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     private String clock = "", date = "";
     private Paint datePaint, clockPaint, weatherPaint, sayPaint, authorPaint;
     private Sayings sayings;
+    private final NowPlaying.Watch nowPlaying = new NowPlaying.Watch(getContext(), this::invalidate);
+    private Paint nowPaint;
     private Sayings.Saying saying;
     private final List<String> sayingLines = new ArrayList<>();
     private long sayingChangeAt, sayingFadeFrom = -1;
@@ -76,6 +78,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         sceneShown = false;
         glassClock.reset();
         loadSayings();
+        nowPlaying.start();
         data.addListener(this);
         data.refreshIfStale();
         handler.postDelayed(tick, 60_000);
@@ -89,6 +92,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         Choreographer.getInstance().removeFrameCallback(this);
         handler.removeCallbacks(tick);
         data.removeListener(this);
+        nowPlaying.stop();
         if (scenes != null) scenes.release();
         scenes = null;
         sceneShown = false;
@@ -119,9 +123,11 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         weatherPaint = Ui.numbers(Ui.medium, 30 * k, 0xC7FFFFFF);
         sayPaint = Ui.text(Ui.cursive, 42 * k, 0xF2FFFFFF);
         sayPaint.setTextAlign(Paint.Align.CENTER);
+        nowPaint = Ui.text(Ui.medium, 32 * k, 0xF2FFFFFF);
+        nowPaint.setTextAlign(Paint.Align.LEFT);
         authorPaint = Ui.text(Ui.regular, 22 * k, 0xB3FFFFFF);
         authorPaint.setTextAlign(Paint.Align.CENTER);
-        for (Paint p : new Paint[] {datePaint, weatherPaint, sayPaint, authorPaint}) p.setShadowLayer(16 * k, 0, 2 * k, 0xA6000000);   // legible on a pale scene
+        for (Paint p : new Paint[] {datePaint, weatherPaint, sayPaint, authorPaint, nowPaint}) p.setShadowLayer(16 * k, 0, 2 * k, 0xA6000000);   // legible on a pale scene
         layoutSaying();
         Symbols.warmWeather(getContext(), 32 * k);
         glassClock.reset();
@@ -241,6 +247,11 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
 
     /** The quote and its author near the bottom edge; every 2 minutes it fades out and the next fades in. */
     private void drawSaying(Canvas c, long up) {
+        String np = nowPaint == null ? null : NowPlaying.display(getContext(), nowPlaying);
+        if (np != null) {   // something is playing (or was, today): it takes the quote's place
+            drawNowPlaying(c, up, np);
+            return;
+        }
         if (!Prefs.sayings() || saying == null || sayingLines.isEmpty() || sayPaint == null) return;
         float alpha = 1;
         if (sayingFadeFrom < 0 && up >= sayingChangeAt) {
@@ -277,6 +288,20 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         float first = authorBase - 56 * k - (sayingLines.size() - 1) * lineH;
         for (int i = 0; i < sayingLines.size(); i++) c.drawText(sayingLines.get(i), cx, first + i * lineH, sayPaint);
         c.drawText(saying.author, cx, authorBase, authorPaint);
+    }
+
+    /** The level bars and "Title · Artist · App", centred where the quote goes; dimmed when it's only the last played. */
+    private void drawNowPlaying(Canvas c, long up, String text) {
+        boolean live = nowPlaying.line() != null;
+        int alpha = live ? 0xF2 : 0x99;
+        nowPaint.setAlpha(alpha);
+        String fit = android.text.TextUtils.ellipsize(text, new android.text.TextPaint(nowPaint), w * 0.7f,
+                android.text.TextUtils.TruncateAt.END).toString();
+        float cap = Ui.cap(nowPaint), barsW = cap * 0.24f * 3 + cap * 0.24f * 0.7f * 2, gap = 22 * k;
+        float x = (w - (barsW + gap + nowPaint.measureText(fit))) / 2, base = h - 92 * k;
+        nowPaint.setAlpha(alpha);
+        NowPlaying.bars(c, x, base, cap, nowPaint, nowPlaying.playing(), up);
+        c.drawText(fit, x + barsW + gap, base, nowPaint);
     }
 
     private void record() {

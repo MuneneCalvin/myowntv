@@ -566,6 +566,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     /** Reads the icons' state and listens for changes only while the setting is on (nothing runs with it off). */
     private void startStatus() {
+        nowWatch().start();
         if (!Prefs.statusIcons()) return;
         updateDevices();
         // The registration hands the current network over at once, so the first read is this callback. With no
@@ -616,6 +617,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     }
 
     private void stopStatus() {
+        if (nowWatch != null) nowWatch.stop();
         if (connectivity != null && networkRegistered) {
             try {
                 connectivity.unregisterNetworkCallback(networkCallback);
@@ -1824,8 +1826,47 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private Quotes quotes;
 
+    private NowPlaying.Watch nowWatch;
+
+    private NowPlaying.Watch nowWatch() {
+        if (nowWatch == null) nowWatch = new NowPlaying.Watch(getContext(), this::invalidate);
+        return nowWatch;
+    }
+
+    /** What Now Playing shows in the prices' place, or null (setting off, nothing playing, nothing from today). */
+    private String nowLine() {
+        return NowPlaying.display(getContext(), nowWatch);
+    }
+
+    /** Now Playing in the prices' row, right-aligned like them: level bars, then the line (dimmed when only the last played). */
+    private void drawNowPlaying(Canvas c, String line) {
+        boolean clock = clockMode(), live = nowWatch != null && nowWatch.line() != null;
+        applyTone();
+        Paint text = clock ? lClockQuote : lQuote;
+        float cap = Ui.cap(text), barsW = cap * 0.24f * 3 + cap * 0.24f * 0.7f * 2, gap = 10 * k;
+        float right = CONTENT_R * k, maxText = Math.min(getWidth() * 0.4f, right - MARGIN * k - barsW - gap);
+        String fit = android.text.TextUtils.ellipsize(line, new android.text.TextPaint(text), maxText,
+                android.text.TextUtils.TruncateAt.END).toString();
+        float base = clock ? L_QUOTES_BASE * k : (L_TABBAR_TOP + L_TABBAR_H / 2) * k + cap / 2;
+        float x = clock ? MARGIN * k : right - barsW - gap - text.measureText(fit);
+        int color = text.getColor();
+        text.setColor(Ui.alpha(color, live ? 1f : 0.6f));
+        NowPlaying.bars(c, x, base, cap, text, live && nowWatch.playing(), SystemClock.uptimeMillis());
+        Paint.Align was = text.getTextAlign();
+        text.setTextAlign(Paint.Align.LEFT);
+        c.drawText(fit, x + barsW + gap, base, text);
+        text.setTextAlign(was);
+        text.setColor(color);
+        if (live) postInvalidateDelayed(80);   // the bars move
+    }
+
     /** Coin logo + price in the configured currency, in a row at the right end of the tab bar. */
     private void drawQuotes(Canvas c) {
+        String now = nowLine();
+        if (now != null) {
+            drawNowPlaying(c, now);
+            return;
+        }
         boolean clock = clockMode();
         // At the right margin, under the round buttons: the shelf's glass is narrower and centred with few apps.
         float right = CONTENT_R * k;
@@ -5000,7 +5041,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (clockMode()) {
             titleRight = 0;
             drawClock(c);
-            if (HomeData.coinCount() > 0) drawQuotes(c);
+            if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
             return;
         }
         if (keepRow()) {   // Couch TV's home: the date and weather, the clock (on the sky layer), "Keep watching" and its row
@@ -5008,7 +5049,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             sceneText().setTextAlign(Paint.Align.LEFT);
             c.drawText(Ui.tr("Continue Watching"), MARGIN * k, (KEEP_Y - 26) * k, sceneText());
             drawWatchRow(c);
-            if (HomeData.coinCount() > 0) drawQuotes(c);
+            if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
             return;
         }
         if (picksRow()) {   // the TMDB picks as a row of glass cards under the clock, its tabs above the row
@@ -5019,7 +5060,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             for (int i = 0; i < cardSlots; i++) if (cardFocus[i].value > 0.02f && (topCard < 0 || cardFocus[i].value > cardFocus[topCard].value)) topCard = i;
             for (int i = 0; i < cardSlots; i++) if (i != topCard) drawPickCard(c, i);
             if (topCard >= 0) drawPickCard(c, topCard);
-            if (HomeData.coinCount() > 0) drawQuotes(c);
+            if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
             return;
         }
         String hello = picksMode() ? Ui.tr("For You") : Ui.tr("Continue Watching");
@@ -5027,7 +5068,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         titleRight = MARGIN * k + lTitle.measureText(hello);
         if (!picksMode()) {
             if (continueMode()) drawWatchRow(c);
-            if (HomeData.coinCount() > 0) drawQuotes(c);
+            if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
             return;
         }
         // Text tabs (the selected one in bold, in the main text color); with focus on the tabs, the selected one gets
@@ -5060,7 +5101,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         for (int i = 0; i < slots; i++) if (cardFocus[i].value > 0.02f && (top < 0 || cardFocus[i].value > cardFocus[top].value)) top = i;
         for (int i = 0; i < slots; i++) if (i != top) drawLightCard(c, i);
         if (top >= 0) drawLightCard(c, top);
-        if (HomeData.coinCount() > 0) drawQuotes(c);
+        if (HomeData.coinCount() > 0 || nowLine() != null) drawQuotes(c);
     }
 
     private boolean picksOn() {

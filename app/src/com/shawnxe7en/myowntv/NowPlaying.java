@@ -47,6 +47,26 @@ public class NowPlaying extends NotificationListenerService {
         return s == null || s.pkg.isEmpty() ? null : s.pkg;
     }
 
+    /** What to show: the live line, else "Last played: …" from before, else null (also null with the setting off). */
+    static String display(Context c, Watch w) {
+        if (!Prefs.nowPlaying()) return null;
+        if (w != null && w.line() != null) return w.line();
+        String last = last(c);
+        return last == null ? null : Ui.tr("Last played") + ": " + last;
+    }
+
+    /** The level bars: three, bouncing while `playing`, resting low otherwise. Drawn left of x, `height` tall on `base`. */
+    static float bars(android.graphics.Canvas c, float x, float base, float height, android.graphics.Paint p,
+                      boolean playing, long up) {
+        float w = height * 0.24f, gap = w * 0.7f, total = 3 * w + 2 * gap;
+        for (int i = 0; i < 3; i++) {
+            float level = playing ? 0.3f + 0.7f * (float) Math.abs(Math.sin(up / (210.0 + i * 95) + i * 1.7)) : 0.3f;
+            float left = x + i * (w + gap), top = base - height * level;
+            c.drawRoundRect(left, top, left + w, base, w / 2, w / 2, p);
+        }
+        return total;
+    }
+
     /** Follows the sessions while a screen that shows them is up (start and stop), and says when the line changes. */
     static final class Watch {
         private final Context ctx;

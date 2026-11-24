@@ -1146,7 +1146,7 @@ public class SettingsActivity extends Activity {
                 case HOME_SETTINGS:
                     return pickScroll + i == POWER_ON_ROW ? Capabilities.NEED_LIVE_TV
                             : pickScroll + i == LIVE_BUTTON_ROW ? Capabilities.NEED_HDMI
-                            : pickScroll + i == NOWPLAYING_ROW ? Capabilities.NEED_ADB : null;
+                            : pickScroll + i == NOWPLAYING_ROW && !Prefs.nowPlaying() ? Capabilities.NEED_ADB : null;   // switching it off always works
                 case SHELF_EDIT: {   // only to add it: one already among the buttons can still move or go
                     String key = shelfRows.get(pickScroll + i)[0];
                     if (editingInputs || !editingTop || shelfOrder.contains(key)) return null;
@@ -1374,12 +1374,8 @@ public class SettingsActivity extends Activity {
                 case NOWPLAYING_ROW: {   // the listener that lets us read the media sessions is granted only while this is on
                     boolean on = !Prefs.nowPlaying();
                     Prefs.setNowPlaying(on);
-                    if (on) {
-                        HomeMode.requestNowPlayingGrant(getContext());
-                    } else {
-                        Prefs.setLastPlayed("");
-                        HomeMode.requestNowPlayingRevoke(getContext());
-                    }
+                    if (!on) Prefs.setLastPlayed("");
+                    HomeMode.requestNowPlayingSync(getContext());
                     break;
                 }
                 case WEATHER_ROW: Prefs.setWeather(!Prefs.weather()); break;

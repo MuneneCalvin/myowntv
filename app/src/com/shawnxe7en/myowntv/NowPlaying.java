@@ -76,6 +76,10 @@ public class NowPlaying extends NotificationListenerService {
         private MediaSessionManager manager;
         private String line, pkg;
         private boolean playing;
+        private int tries;
+        private final java.util.Map<String, String> labels = new java.util.HashMap<>();
+        /** The grant takes a few seconds after the switch: look again until it has (a few times only). */
+        private final Runnable retry = () -> start();
 
         private final MediaSessionManager.OnActiveSessionsChangedListener sessions = list -> follow(list);
         private final MediaController.Callback callback = new MediaController.Callback() {
@@ -93,18 +97,26 @@ public class NowPlaying extends NotificationListenerService {
         boolean playing() { return line != null && playing; }
 
         void start() {
-            if (manager != null || !Prefs.nowPlaying() || !allowed(ctx)) return;
+            if (manager != null || !Prefs.nowPlaying()) return;
+            if (!allowed(ctx)) {
+                if (tries++ < 6) main.postDelayed(retry, 3_000);
+                return;
+            }
+            MediaSessionManager m = ctx.getSystemService(MediaSessionManager.class);
+            if (m == null) return;
             try {
-                manager = ctx.getSystemService(MediaSessionManager.class);
-                manager.addOnActiveSessionsChangedListener(sessions, component(ctx), main);
-                follow(manager.getActiveSessions(component(ctx)));
+                m.addOnActiveSessionsChangedListener(sessions, component(ctx), main);
+                manager = m;
+                follow(m.getActiveSessions(component(ctx)));
             } catch (SecurityException e) {   // the grant isn't in effect (yet)
                 AppLog.w("now playing: " + e.getMessage());
-                manager = null;
+                stop();
             }
         }
 
         void stop() {
+            main.removeCallbacks(retry);
+            tries = 0;
             if (manager == null) return;
             manager.removeOnActiveSessionsChangedListener(sessions);
             for (MediaController c : watched) c.unregisterCallback(callback);
@@ -148,12 +160,16 @@ public class NowPlaying extends NotificationListenerService {
         }
 
         private String label(String pkgName) {
+            String known = labels.get(pkgName);
+            if (known != null) return known;
             try {
                 PackageManager pm = ctx.getPackageManager();
-                return String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkgName, 0)));
+                known = String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkgName, 0)));
             } catch (PackageManager.NameNotFoundException e) {
-                return pkgName;
+                known = pkgName;
             }
+            labels.put(pkgName, known);
+            return known;
         }
     }
 }

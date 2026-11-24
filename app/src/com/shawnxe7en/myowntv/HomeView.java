@@ -1827,6 +1827,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private Quotes quotes;
 
     private NowPlaying.Watch nowWatch;
+    private String npFit, npFitFor;
+    private float npFitMax, npFitSize, npFitWidth;
 
     private NowPlaying.Watch nowWatch() {
         if (nowWatch == null) nowWatch = new NowPlaying.Watch(getContext(), this::invalidate);
@@ -1843,21 +1845,33 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         boolean clock = clockMode(), live = nowWatch != null && nowWatch.line() != null;
         applyTone();
         Paint text = clock ? lClockQuote : lQuote;
+        // As the prices: the corner buttons' names appear in this row, so the line fades out while one has focus.
+        float fade = 1;
+        for (int i = 3; i < 3 + lightButtons.size() && !clock; i++) fade = Math.min(fade, 1 - Ui.clamp(topFocus[i].value));
+        if (fade <= 0.01f) return;
         float cap = Ui.cap(text), barsW = cap * 0.24f * 3 + cap * 0.24f * 0.7f * 2, gap = 10 * k;
         float right = CONTENT_R * k, maxText = Math.min(getWidth() * 0.4f, right - MARGIN * k - barsW - gap);
-        String fit = android.text.TextUtils.ellipsize(line, new android.text.TextPaint(text), maxText,
-                android.text.TextUtils.TruncateAt.END).toString();
+        // Fitted once per line and size: measuring text in this row on every frame is what the prices' cache avoids.
+        if (!line.equals(npFitFor) || maxText != npFitMax || text.getTextSize() != npFitSize) {
+            npFit = android.text.TextUtils.ellipsize(line, new android.text.TextPaint(text), maxText,
+                    android.text.TextUtils.TruncateAt.END).toString();
+            npFitFor = line;
+            npFitMax = maxText;
+            npFitSize = text.getTextSize();
+            npFitWidth = text.measureText(npFit);
+        }
+        String fit = npFit;
         float base = clock ? L_QUOTES_BASE * k : (L_TABBAR_TOP + L_TABBAR_H / 2) * k + cap / 2;
-        float x = clock ? MARGIN * k : right - barsW - gap - text.measureText(fit);
+        float x = clock ? MARGIN * k : right - barsW - gap - npFitWidth;
         int color = text.getColor();
-        text.setColor(Ui.alpha(color, live ? 1f : 0.6f));
+        text.setColor(Ui.alpha(color, (live ? 1f : 0.6f) * fade));
         NowPlaying.bars(c, x, base, cap, text, live && nowWatch.playing(), SystemClock.uptimeMillis());
         Paint.Align was = text.getTextAlign();
         text.setTextAlign(Paint.Align.LEFT);
         c.drawText(fit, x + barsW + gap, base, text);
         text.setTextAlign(was);
         text.setColor(color);
-        if (live) postInvalidateDelayed(80);   // the bars move
+        if (live) postInvalidateDelayed(80, (int) x, (int) (base - cap * 1.2f), (int) (x + barsW) + 1, (int) (base + cap * 0.3f));   // the bars move: only their corner
     }
 
     /** Coin logo + price in the configured currency, in a row at the right end of the tab bar. */

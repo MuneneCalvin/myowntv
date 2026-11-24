@@ -383,9 +383,14 @@ final class Prefs {
     static void setSayings(boolean on) { put("sayings", on); }
     /** Now Playing on Home and the screensaver (needs the notification listener grant), and the last line it saw. */
     static boolean nowPlaying() { return sp().getBoolean("nowPlaying", false); }
-    static void setNowPlaying(boolean on) { put("nowPlaying", on); }
+    /** Written at once (commit): the grant job in the other process reads it right after. */
+    static void setNowPlaying(boolean on) {
+        sp().edit().putBoolean("nowPlaying", on).commit();
+        version++;
+    }
     static String lastPlayed() { return sp().getString("lastPlayed", ""); }
-    static void setLastPlayed(String packed) { put("lastPlayed", packed); }
+    /** Without bumping `version`: every track change would make the home screen start over (see putQuietly). */
+    static void setLastPlayed(String packed) { sp().edit().putString("lastPlayed", packed).apply(); }
     static boolean quotes() { return sp().getBoolean("quotes", Config.SHOW_CRYPTO); }
     static void setQuotes(boolean on) { put("quotes", on); }
 

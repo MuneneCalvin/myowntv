@@ -1146,31 +1146,33 @@ final class HomeMode {
      * (NowPlaying). Enabled through the TV's own ADB while the setting is on, and taken back when it goes off: a
      * listener could read every notification.
      */
-    static void requestNowPlayingGrant(Context c) {
-        ModeJob.schedule(c, ModeJob.GRANT_NOW, null, 0);
+    /** The setting was just changed (on or off): bring the listener's grant in line with it. */
+    static void requestNowPlayingSync(Context c) {
+        ModeJob.schedule(c, ModeJob.SYNC_NOW, null, 0);
     }
 
-    static void requestNowPlayingRevoke(Context c) {
-        ModeJob.schedule(c, ModeJob.REVOKE_NOW, null, 0);
-    }
+    private static final Object NOW = new Object();
 
-    static void grantNowPlayingNow(Context app) {
-        if (NowPlaying.allowed(app) || !Prefs.nowPlaying()) return;
-        try (Adb adb = Adb.connect(app, 8_000, null)) {
-            adb.shell("cmd notification allow_listener " + NowPlaying.component(app).flattenToString());
-            AppLog.w("now playing listener " + (NowPlaying.allowed(app) ? "granted" : "not granted"));
-        } catch (IOException e) {
-            AppLog.w("now playing listener: " + e.getMessage());
-        }
-    }
-
-    static void revokeNowPlayingNow(Context app) {
-        if (!NowPlaying.allowed(app) || Prefs.nowPlaying()) return;
-        try (Adb adb = Adb.connect(app, 8_000, null)) {
-            adb.shell("cmd notification disallow_listener " + NowPlaying.component(app).flattenToString());
-            AppLog.w("now playing listener revoked");
-        } catch (IOException e) {
-            AppLog.w("now playing listener: " + e.getMessage());
+    /**
+     * One job for both directions, under a lock: a grant and a revoke running side by side could end with the listener
+     * granted while the setting is off. The setting is read again (another process wrote it) before and after the
+     * shell command, and the job goes round again if it changed meanwhile.
+     */
+    static void syncNowPlayingNow(Context app) {
+        synchronized (NOW) {
+            for (int round = 0; round < 3; round++) {
+                Prefs.reload();
+                boolean want = Prefs.nowPlaying();
+                if (want == NowPlaying.allowed(app)) return;
+                try (Adb adb = Adb.connect(app, 8_000, null)) {
+                    adb.shell("cmd notification " + (want ? "allow_listener " : "disallow_listener ")
+                            + NowPlaying.component(app).flattenToString());
+                    AppLog.w("now playing listener " + (want ? "granted: " : "revoked: ") + NowPlaying.allowed(app));
+                } catch (IOException e) {
+                    AppLog.w("now playing listener: " + e.getMessage());
+                    return;
+                }
+            }
         }
     }
 

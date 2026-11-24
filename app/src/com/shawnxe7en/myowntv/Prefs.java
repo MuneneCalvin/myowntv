@@ -381,6 +381,11 @@ final class Prefs {
     /** The screensaver's quotes from books and poems (not the prices: those are quotes() above). */
     static boolean sayings() { return sp().getBoolean("sayings", true); }
     static void setSayings(boolean on) { put("sayings", on); }
+    /** Now Playing on Home and the screensaver (needs the notification listener grant), and the last line it saw. */
+    static boolean nowPlaying() { return sp().getBoolean("nowPlaying", false); }
+    static void setNowPlaying(boolean on) { put("nowPlaying", on); }
+    static String lastPlayed() { return sp().getString("lastPlayed", ""); }
+    static void setLastPlayed(String packed) { put("lastPlayed", packed); }
     static boolean quotes() { return sp().getBoolean("quotes", Config.SHOW_CRYPTO); }
     static void setQuotes(boolean on) { put("quotes", on); }
 

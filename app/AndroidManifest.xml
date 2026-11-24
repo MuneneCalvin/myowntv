@@ -221,6 +221,18 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
+        <!-- Now Playing: an empty notification listener whose only use is to let the app read media sessions (it reads no
+             notification and unbinds at once). Android needs it exported; the system alone can bind it. -->
+        <service
+            android:name=".NowPlaying"
+            android:exported="true"
+            android:label="MyOwnTV"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- The remote's app buttons from inside any app (Settings > Remote Buttons). Its own process: the system waits for it on
              every key, so the home screen must never be able to slow it down. -->
         <service

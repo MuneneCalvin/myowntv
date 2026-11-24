@@ -1139,6 +1139,41 @@ final class HomeMode {
         }
     }
 
+    // MARK: - Now Playing's listener
+
+    /**
+     * Now Playing reads the apps' media sessions, which Android gives only to an enabled notification listener
+     * (NowPlaying). Enabled through the TV's own ADB while the setting is on, and taken back when it goes off: a
+     * listener could read every notification.
+     */
+    static void requestNowPlayingGrant(Context c) {
+        ModeJob.schedule(c, ModeJob.GRANT_NOW, null, 0);
+    }
+
+    static void requestNowPlayingRevoke(Context c) {
+        ModeJob.schedule(c, ModeJob.REVOKE_NOW, null, 0);
+    }
+
+    static void grantNowPlayingNow(Context app) {
+        if (NowPlaying.allowed(app) || !Prefs.nowPlaying()) return;
+        try (Adb adb = Adb.connect(app, 8_000, null)) {
+            adb.shell("cmd notification allow_listener " + NowPlaying.component(app).flattenToString());
+            AppLog.w("now playing listener " + (NowPlaying.allowed(app) ? "granted" : "not granted"));
+        } catch (IOException e) {
+            AppLog.w("now playing listener: " + e.getMessage());
+        }
+    }
+
+    static void revokeNowPlayingNow(Context app) {
+        if (!NowPlaying.allowed(app) || Prefs.nowPlaying()) return;
+        try (Adb adb = Adb.connect(app, 8_000, null)) {
+            adb.shell("cmd notification disallow_listener " + NowPlaying.component(app).flattenToString());
+            AppLog.w("now playing listener revoked");
+        } catch (IOException e) {
+            AppLog.w("now playing listener: " + e.getMessage());
+        }
+    }
+
     /**
      * Original takes the permission back. Android stops the app's processes when a permission is revoked, so this runs
      * as its own job once the switch is over (if the job is run again after that, it finds nothing left to revoke). It

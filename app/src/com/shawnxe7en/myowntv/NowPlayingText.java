@@ -84,6 +84,19 @@ final class NowPlayingText {
         }
     }
 
+    private static final java.util.regex.Pattern VIDEO = java.util.regex.Pattern.compile("\"videoRenderer\":\\{\"videoId\":\"([A-Za-z0-9_-]{11})\"");
+
+    /** The first video in a YouTube results page (not an ad or a short), or null. */
+    static String firstVideoId(String html) {
+        if (html == null) return null;
+        java.util.regex.Matcher m = VIDEO.matcher(html);
+        return m.find() ? m.group(1) : null;
+    }
+
+    static String youtubeWatch(String id) {
+        return "https://www.youtube.com/watch?v=" + id;
+    }
+
     static String pack(String line, String pkg, long at) {
         return clean(line) + "\t" + clean(pkg) + "\t" + at;
     }

@@ -54,6 +54,12 @@ public class NowPlayingTextTest {
         check("https://www.youtube.com/results?search_query=Title".equals(NowPlayingText.youtubeSearch("Title · YouTube")), "title and app: just the title");
         check(NowPlayingText.youtubeSearch(null) == null && NowPlayingText.youtubeSearch("  ") == null && NowPlayingText.youtubeSearch("") == null, "nothing to search for");
         check(NowPlayingText.youtubeSearch("Tom & Jerry? · Cartoons · YouTube").contains("Tom+%26+Jerry%3F"), "special characters are encoded");
+        String html = "<script>var ytInitialData = {\"contents\":{\"adSlot\":{\"videoId\":\"SHORT000000\"},\"videoRenderer\":{\"videoId\":\"AbC-_123xyz\",\"thumbnail\":{}},\"videoRenderer\":{\"videoId\":\"second00000\"}}}</script>";
+        check("AbC-_123xyz".equals(NowPlayingText.firstVideoId(html)), "the first video result, not other ids on the page");
+        check(NowPlayingText.firstVideoId("<html>no results</html>") == null, "no video on the page");
+        check(NowPlayingText.firstVideoId(null) == null && NowPlayingText.firstVideoId("") == null, "nothing to read");
+        check(NowPlayingText.firstVideoId("{\"videoRenderer\":{\"videoId\":\"tooShort\"}}") == null, "an id of the wrong length is not a video id");
+        check("https://www.youtube.com/watch?v=AbC-_123xyz".equals(NowPlayingText.youtubeWatch("AbC-_123xyz")), "the watch address");
         System.out.println("PASS NowPlayingTextTest");
     }
 }

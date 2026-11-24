@@ -48,7 +48,7 @@ Home Settings > Now playing (off by default) shows what is playing, in any app t
 - **After a restart or when an app drops its session**, the pill shows the last thing played, dimmed, for 24 hours; OK opens that app.
 - It reads the media sessions only. It never reads a notification.
 - Switching it on has the TV's own wireless debugging grant a notification listener (a one-time grant; the row reads "Waiting" until it takes). Switching it off takes the grant back.
-- **Spotify** shows and is controllable, also from the background. **YouTube** (video) shows only while it is open: the app stops and drops its session when you leave it, and nothing can resume it from outside. After that, OK on "Last played" opens YouTube on a search for that video (with the right one focused: press OK to play it). Netflix does the same as YouTube.
+- **Spotify** shows and is controllable, also from the background. **YouTube** (video) shows only while it is open: the app stops and drops its session when you leave it, and nothing can resume it from outside. After that, OK on "Last played" looks the title up on YouTube (a quick web request) and opens that video, which plays from the start; if the lookup fails it opens YouTube on the search. Netflix does the same as YouTube, but OK there just opens the app.
 
 ## Troubleshooting
 - **Google home shows before MyOwnTV after a power-off boot:** expected for a few seconds; the home screen is switched

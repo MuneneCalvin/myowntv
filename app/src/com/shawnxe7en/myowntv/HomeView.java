@@ -1902,19 +1902,45 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (!openApp(new WatchNext.Item(pkg, null, null))) showToast(Ui.trf("Couldn't open {app}.", "app", pkg));
     }
 
-    /** YouTube drops its session on leaving, so Last played can't resume it: open YouTube on a search for it instead. */
+    /**
+     * YouTube drops its session on leaving and keeps no address for the video, so Last played looks the title up: the
+     * first video of YouTube's own results page (off the main thread) opens straight in YouTube, which plays it. If the
+     * lookup fails, YouTube opens on the search instead.
+     */
     private boolean openYoutubeSearch(String line) {
-        String url = NowPlayingText.youtubeSearch(line);
-        if (url == null) return false;
-        try {
-            activity.startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
-                    .setPackage("com.google.android.youtube.tv").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            Recent.note(activity, "com.google.android.youtube.tv");
-            return true;
-        } catch (ActivityNotFoundException | SecurityException e) {
-            AppLog.w("couldn't open a YouTube search: " + e.getMessage());
-            return false;
-        }
+        final String search = NowPlayingText.youtubeSearch(line);
+        if (search == null) return false;
+        new Thread(() -> {
+            String url = search;
+            try {
+                java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(search).openConnection();
+                c.setConnectTimeout(4000);
+                c.setReadTimeout(5000);
+                c.setRequestProperty("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36");
+                c.setRequestProperty("Accept-Language", "en");
+                try (java.io.InputStream in = c.getInputStream()) {
+                    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                    byte[] buf = new byte[16384];
+                    for (int n; (n = in.read(buf)) > 0 && out.size() < 1_500_000; ) out.write(buf, 0, n);
+                    String id = NowPlayingText.firstVideoId(out.toString("UTF-8"));
+                    if (id != null) url = NowPlayingText.youtubeWatch(id);
+                }
+            } catch (java.io.IOException | RuntimeException e) {
+                AppLog.w("YouTube lookup: " + e.getMessage());
+            }
+            final String open = url;
+            post(() -> {
+                try {
+                    activity.startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(open))
+                            .setPackage("com.google.android.youtube.tv").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    Recent.note(activity, "com.google.android.youtube.tv");
+                } catch (ActivityNotFoundException | SecurityException e) {
+                    AppLog.w("couldn't open YouTube: " + e.getMessage());
+                    showToast(Ui.trf("Couldn't open {app}.", "app", "YouTube"));
+                }
+            });
+        }, "myowntv-youtube-lookup").start();
+        return true;
     }
 
     /** Whether Now Playing has something to show in the prices' place: a session, or the last one from today. */

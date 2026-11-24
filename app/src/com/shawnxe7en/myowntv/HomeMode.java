@@ -995,7 +995,7 @@ final class HomeMode {
                 if (theirs) latest.put("keptOff", new JSONArray(keptOff));
                 save(app, latest);
             } catch (Exception e) {
-                notice(app, Ui.trf("Couldn't check MyOwnTV: {error}", "error", e.getMessage()));
+                AppLog.w("couldn't check MyOwnTV: " + e.getMessage());   // a TV without its own ADB (port 5555 closed) can't be checked: no popup for that
                 return;
             }
             if (!fixed.isEmpty()) {

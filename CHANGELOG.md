@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.3.0
 - Now playing: a switch in Home Settings shows what is playing as a dark glass pill (album art, title, artist and app, with how far along) in the prices' place on Home and at the top right of the screensaver. Press Down from the corner buttons and OK to open a card with previous, play or pause and next. After a pause or restart it shows the last thing played, dimmed, for a day; OK opens that app (YouTube: plays that video again). It reads the apps' media sessions only (never notifications) and needs the TV's wireless debugging for a one-time grant that is taken back when you switch it off.
+- No more popup on Home when the TV has no debugging port ("Couldn't check MyOwnTV: debugging is off on the TV (port 5555 closed)").
 
 ## 1.2.0
 - Search: a round Search button on the Home screen. Type or say a title; it shows which of your TV's streaming apps have it in your country, opens the app on it, and can save it to My list (needs your free TMDB key).

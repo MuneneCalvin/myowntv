@@ -10,7 +10,7 @@ final class NowPlayingText {
     private NowPlayingText() {}
 
     /** PlaybackState's values. */
-    static final int PAUSED = 2, PLAYING = 3, BUFFERING = 6, CONNECTING = 8;
+    static final int PAUSED = 2, PLAYING = 3, BUFFERING = 6, CONNECTING = 8, SKIPPING_PREVIOUS = 9, SKIPPING_NEXT = 10;
     static final long KEEP_MS = 24L * 3600_000;
     static final int MAX_CHARS = 80;
 
@@ -46,10 +46,14 @@ final class NowPlayingText {
         return null;
     }
 
-    /** The one to show and control: what is playing, else a paused session (it can be resumed); null if neither. */
+    /**
+     * The one to show and control: what is playing (or moving to the next or previous track, which some apps pass
+     * through when you press skip), else a paused session (it can be resumed); null if neither.
+     */
     static Session pickCurrent(List<Session> sessions) {
         Session playing = pick(sessions);
         if (playing != null) return playing;
+        for (Session s : sessions) if (s.state == SKIPPING_NEXT || s.state == SKIPPING_PREVIOUS) return s;
         for (Session s : sessions) if (s.state == PAUSED) return s;
         return null;
     }

@@ -60,6 +60,12 @@ public class NowPlayingTextTest {
         check(NowPlayingText.firstVideoId(null) == null && NowPlayingText.firstVideoId("") == null, "nothing to read");
         check(NowPlayingText.firstVideoId("{\"videoRenderer\":{\"videoId\":\"tooShort\"}}") == null, "an id of the wrong length is not a video id");
         check("https://www.youtube.com/watch?v=AbC-_123xyz".equals(NowPlayingText.youtubeWatch("AbC-_123xyz")), "the watch address");
+        java.util.List<NowPlayingText.Session> skipping = new java.util.ArrayList<>();
+        skipping.add(new NowPlayingText.Session(NowPlayingText.SKIPPING_NEXT, "n", "x", "A", "p"));
+        check(NowPlayingText.pickCurrent(skipping) != null, "skipping to the next track is still the current session");
+        skipping.clear();
+        skipping.add(new NowPlayingText.Session(NowPlayingText.SKIPPING_PREVIOUS, "n", "x", "A", "p"));
+        check(NowPlayingText.pickCurrent(skipping) != null, "skipping to the previous track is still the current session");
         System.out.println("PASS NowPlayingTextTest");
     }
 }

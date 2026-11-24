@@ -14,7 +14,8 @@ final class NowPlayingControls {
     static boolean canToggle(long actions) { return (actions & (ACTION_PLAY | ACTION_PAUSE | ACTION_PLAY_PAUSE)) != 0; }
 
     static boolean isPlaying(int state) {
-        return state == NowPlayingText.PLAYING || state == NowPlayingText.BUFFERING || state == NowPlayingText.CONNECTING;
+        return state == NowPlayingText.PLAYING || state == NowPlayingText.BUFFERING || state == NowPlayingText.CONNECTING
+                || state == NowPlayingText.SKIPPING_NEXT || state == NowPlayingText.SKIPPING_PREVIOUS;
     }
 
     /**

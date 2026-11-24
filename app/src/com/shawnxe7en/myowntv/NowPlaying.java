@@ -82,6 +82,7 @@ public class NowPlaying extends NotificationListenerService {
         private String trackSignature = "", artKey = "";
         private Bitmap artBitmap;
         private int tries;
+        private String artFetchKey = "";
         private final java.util.Map<String, String> labels = new java.util.HashMap<>();
         /** The grant takes a few seconds after the switch: look again until it has (a few times only). */
         private final Runnable retry = () -> start();
@@ -150,6 +151,8 @@ public class NowPlaying extends NotificationListenerService {
             watched.clear();
             track = null;
             trackSignature = "";
+            artKey = "";
+            artFetchKey = "";
             manager = null;
         }
 
@@ -211,8 +214,12 @@ public class NowPlaying extends NotificationListenerService {
                 String key = t.pkg + "|" + t.title + "|" + t.artist;
                 if (!key.equals(artKey)) {
                     artKey = key;
-                    artBitmap = m == null ? null : bitmapOf(m);
-                    if (artBitmap == null && m != null) loadArtFromUri(m, key);
+                    artBitmap = null;
+                }
+                // Apps often publish the art a moment after the text: look again until it's here (one fetch at a time).
+                if (artBitmap == null && m != null) {
+                    artBitmap = bitmapOf(m);
+                    if (artBitmap == null) loadArtFromUri(m, key);
                 }
                 t.art = artBitmap;
             }
@@ -246,7 +253,8 @@ public class NowPlaying extends NotificationListenerService {
                 uri = m.getString(k);
                 if (uri != null && !uri.isEmpty()) break;
             }
-            if (uri == null || uri.isEmpty()) return;
+            if (uri == null || uri.isEmpty() || key.equals(artFetchKey)) return;
+            artFetchKey = key;
             final String address = uri;
             ART_POOL.execute(() -> {
                 Bitmap b = null;
@@ -277,7 +285,9 @@ public class NowPlaying extends NotificationListenerService {
                     AppLog.w("now playing art: " + e);
                 }
                 final Bitmap art = b;
-                if (art != null) main.post(() -> {
+                main.post(() -> {
+                    if (key.equals(artFetchKey)) artFetchKey = "";
+                    if (art == null) return;
                     if (key.equals(artKey) && manager != null) {   // still the same track, still watching
                         artBitmap = art;
                         if (track != null) track.art = art;

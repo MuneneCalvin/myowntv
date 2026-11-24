@@ -1839,6 +1839,18 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private Quotes quotes;
 
     private NowPlaying.Watch nowWatch;
+    private final Runnable pillTick = this::redrawPill, playerTick = this::redrawPlayer;
+
+    private void redrawPill() {
+        heroDirty = true;
+        heroLayer.invalidate();
+    }
+
+    private void redrawPlayer() {
+        menuLayer.invalidate();
+    }
+    private String playerFitFor = "", playerTitleFit = "", playerSubFit = "";
+    private float playerFitRoom;
     private final RectF pillRect = new RectF(), pillArt = new RectF();
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
     private android.graphics.LinearGradient npSheen;
@@ -1885,6 +1897,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             retarget(false);
         }
         if (menuOpen && menuPlayer) menuLayer.invalidate();
+        heroDirty = true;   // the pill is drawn in the hero layer, which only redraws when asked
+        heroLayer.invalidate();
         invalidate();
     }
 
@@ -2069,7 +2083,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             if (tmp.width() > 0) c.drawRoundRect(tmp, lh / 2, lh / 2, fill);
         }
         c.restoreToCount(layer);
-        if (live) postInvalidateDelayed(1000, (int) left, (int) (top + ph - 24 * k), (int) (left + pw) + 1, (int) (top + ph) + 1);   // the progress line moves
+        if (live) {   // the progress line moves: one tick a second, in the hero layer the pill is drawn in
+            removeCallbacks(pillTick);
+            postDelayed(pillTick, 1000);
+        }
     }
 
     /** Coin logo + price in the configured currency, in a row at the right end of the tab bar. */
@@ -4845,6 +4862,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         menuOptions[0] = Ui.tr("Hide from Continue Watching");
         menuOptions[1] = Ui.tr("Open the app");
         menuOptions[2] = Ui.tr("Cancel");
+        menuPlayer = false;
         layoutMenu();
         menuOpen = true;
         menuIndex = 0;
@@ -4902,8 +4920,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (!menuOpen && !snap) return;
         boolean was = menuOpen;
         menuOpen = false;
-        if (menuPlayer) heroLayer.invalidate();   // the pill comes back
-        menuPlayer = false;
+        removeCallbacks(playerTick);
+        if (menuPlayer) heroLayer.invalidate();   // the pill comes back; menuPlayer stays until another menu opens, so the card fades out as itself
         menu.target = 0;
         if (snap) {
             menu.snap(0);
@@ -5110,10 +5128,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         float tx = pillArt.right + pad, room = p.right - pad - tx;
         String title = t.title.isEmpty() ? t.artist : t.title;
         String sub = t.title.isEmpty() || t.artist.isEmpty() ? t.app : t.artist + " \u00b7 " + t.app;
-        c.drawText(TextUtils.ellipsize(title, new TextPaint(playerTitle), room, TextUtils.TruncateAt.END).toString(),
-                tx, p.top + pad + 60 * k, playerTitle);
-        c.drawText(TextUtils.ellipsize(sub, new TextPaint(playerSub), room, TextUtils.TruncateAt.END).toString(),
-                tx, p.top + pad + 106 * k, playerSub);
+        if (!(title + "\n" + sub).equals(playerFitFor) || room != playerFitRoom) {   // fitted once per text and width
+            playerTitleFit = TextUtils.ellipsize(title, new TextPaint(playerTitle), room, TextUtils.TruncateAt.END).toString();
+            playerSubFit = TextUtils.ellipsize(sub, new TextPaint(playerSub), room, TextUtils.TruncateAt.END).toString();
+            playerFitFor = title + "\n" + sub;
+            playerFitRoom = room;
+        }
+        c.drawText(playerTitleFit, tx, p.top + pad + 60 * k, playerTitle);
+        c.drawText(playerSubFit, tx, p.top + pad + 106 * k, playerSub);
         // Progress, with the times under its ends (nothing for a live stream).
         float now = SystemClock.elapsedRealtime();
         float prog = NowPlayingControls.progress(t.position, t.duration, t.updatedAt, t.speed, (long) now, t.playing);
@@ -5149,7 +5171,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         c.restoreToCount(layer);
         c.restore();
-        if (t.playing && prog >= 0) menuLayer.postInvalidateDelayed(500);   // the progress moves
+        if (t.playing && prog >= 0 && menuOpen) {   // the progress moves: one tick, not one per frame drawn
+            removeCallbacks(playerTick);
+            postDelayed(playerTick, 500);
+        }
     }
 
     /**
@@ -5165,6 +5190,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         float width = (NOTICE_W - 3 * NOTICE_PAD - NOTICE_ICON) * k;
         menuItem = null;
         menuUpdate = version;
+        menuPlayer = false;
         menuOptions = new String[] {Ui.tr("Install"), Ui.tr("Later")};
         menuTitle = TextUtils.ellipsize(Ui.trf("MyOwnTV {version} is ready", "version", version), new TextPaint(noticeTitle), width,
                 TextUtils.TruncateAt.END).toString();

@@ -32,6 +32,7 @@ public class NowPlayingControlsTest {
         java.util.List<NowPlayingText.Session> stopped = new java.util.ArrayList<>();
         stopped.add(new NowPlayingText.Session(1, "s", "x", "S", "r"));
         check(NowPlayingText.pickCurrent(stopped) == null, "stopped alone is not current");
+        check(NowPlayingControls.isPlaying(NowPlayingText.SKIPPING_NEXT) && NowPlayingControls.isPlaying(NowPlayingText.SKIPPING_PREVIOUS), "skipping counts as playing (the card must not flip)");
         System.out.println("PASS NowPlayingControlsTest");
     }
 }

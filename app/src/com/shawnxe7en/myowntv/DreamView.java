@@ -44,7 +44,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     private Paint datePaint, clockPaint, weatherPaint, sayPaint, authorPaint;
     private Sayings sayings;
     private final NowPlaying.Watch nowPlaying = new NowPlaying.Watch(getContext(), this::invalidate);
-    private Paint nowPaint;
+    private Paint nowPaint, nowSub;
     private Sayings.Saying saying;
     private final List<String> sayingLines = new ArrayList<>();
     private long sayingChangeAt, sayingFadeFrom = -1;
@@ -124,11 +124,13 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         weatherPaint = Ui.numbers(Ui.medium, 30 * k, 0xC7FFFFFF);
         sayPaint = Ui.text(Ui.cursive, 42 * k, 0xF2FFFFFF);
         sayPaint.setTextAlign(Paint.Align.CENTER);
-        nowPaint = Ui.text(Ui.semibold, 36 * k, 0xF2FFFFFF);
+        nowPaint = Ui.text(Ui.semibold, 28 * k, 0xF2FFFFFF);
         nowPaint.setTextAlign(Paint.Align.LEFT);
+        nowSub = Ui.text(Ui.regular, 21 * k, 0xC0FFFFFF);
+        nowSub.setTextAlign(Paint.Align.LEFT);
         authorPaint = Ui.text(Ui.regular, 22 * k, 0xB3FFFFFF);
         authorPaint.setTextAlign(Paint.Align.CENTER);
-        for (Paint p : new Paint[] {datePaint, weatherPaint, sayPaint, authorPaint, nowPaint}) p.setShadowLayer(16 * k, 0, 2 * k, 0xA6000000);   // legible on a pale scene
+        for (Paint p : new Paint[] {datePaint, weatherPaint, sayPaint, authorPaint, nowPaint, nowSub}) p.setShadowLayer(16 * k, 0, 2 * k, 0xA6000000);   // legible on a pale scene
         layoutSaying();
         Symbols.warmWeather(getContext(), 32 * k);
         glassClock.reset();
@@ -249,8 +251,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
     /** The quote and its author near the bottom edge; every 2 minutes it fades out and the next fades in. */
     private void drawSaying(Canvas c, long up) {
         if (nowPaint != null && Prefs.nowPlaying() && (nowPlaying.track() != null || NowPlaying.last(getContext()) != null)) {
-            drawNowPlaying(c, up);   // something is playing (or was, today): it takes the quote's place
-            return;
+            drawNowPlaying(c, up);   // something is playing (or was, today): its pill at the top right, beside the quote
         }
         if (!Prefs.sayings() || saying == null || sayingLines.isEmpty() || sayPaint == null) return;
         float alpha = 1;
@@ -321,10 +322,13 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         return cardIcon;
     }
 
+    private android.graphics.LinearGradient cardSheen;
+    private float cardSheenTop = -1;
+
     /**
-     * What is playing, as a quiet glass card at the bottom centre where the quote goes: the art (or the app's icon), the
-     * title, the artist and app, and a thin line for how far along. No controls here: any key wakes the screen. Paused,
-     * or only the last played: dimmer, with a play mark.
+     * What is playing, as a compact glass pill at the top right (the quote stays at the bottom): the art (or the app's
+     * icon), the title, the artist and app, and a thin line for how far along. No controls here: any key wakes the screen.
+     * Paused, or only the last played: dimmer, with a play mark.
      */
     private void drawNowPlaying(Canvas c, long up) {
         NowPlaying.Track t = nowPlaying.track();
@@ -337,30 +341,39 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             title = NowPlaying.last(getContext());
             sub = Ui.tr("Last played");
         }
-        float cw = 880 * k, ch = 150 * k, left = (w - cw) / 2, top = h - 64 * k - ch, pad = 20 * k, r = 40 * k;
+        float cw = 560 * k, ch = 104 * k, left = w - 96 * k - cw, top = 158 * k, pad = 16 * k, r = 34 * k;
         cardRect.set(left, top, left + cw, top + ch);
         float art = ch - 2 * pad;
         cardArt.set(left + pad, top + pad, left + pad + art, top + pad + art);
-        float tx = cardArt.right + 28 * k, room = left + cw - pad - tx;
-        nowPaint.setTextAlign(Paint.Align.LEFT);
+        float tx = cardArt.right + 18 * k, room = left + cw - pad - tx;
         if (!(title + "\n" + sub).equals(cardFitFor) || room != cardFitRoom) {
             cardTitleFit = android.text.TextUtils.ellipsize(title, new android.text.TextPaint(nowPaint), room,
                     android.text.TextUtils.TruncateAt.END).toString();
-            cardSubFit = android.text.TextUtils.ellipsize(sub, new android.text.TextPaint(authorPaint), room,
+            cardSubFit = android.text.TextUtils.ellipsize(sub, new android.text.TextPaint(nowSub), room,
                     android.text.TextUtils.TruncateAt.END).toString();
             cardFitFor = title + "\n" + sub;
             cardFitRoom = room;
         }
         float dim = live ? 1f : 0.62f;
-        cardFill.setColor(Ui.alpha(0xFF14161C, 0.55f));
+        // Glass over the scene: the art's colour (slate without art), translucent, with a soft light along the top.
+        int tint = t == null || t.tint == 0 ? 0xFF3A3F4B : t.tint;
+        cardFill.setShader(null);
+        cardFill.setColor(Ui.alpha(tint, 0.58f));
         c.drawRoundRect(cardRect, r, r, cardFill);
+        if (cardSheen == null || cardSheenTop != top) {
+            cardSheen = new android.graphics.LinearGradient(0, top, 0, top + ch, 0x40FFFFFF, 0x00FFFFFF, android.graphics.Shader.TileMode.CLAMP);
+            cardSheenTop = top;
+        }
+        cardFill.setShader(cardSheen);
+        c.drawRoundRect(cardRect, r, r, cardFill);
+        cardFill.setShader(null);
         cardLine.setStyle(Paint.Style.STROKE);
         cardLine.setStrokeWidth(1.5f * k);
-        cardLine.setColor(0x33FFFFFF);
+        cardLine.setColor(0x47FFFFFF);
         c.drawRoundRect(cardRect, r, r, cardLine);
         Bitmap img = t == null ? null : t.art;
         cardPath.reset();
-        cardPath.addRoundRect(cardArt, 26 * k, 26 * k, android.graphics.Path.Direction.CW);
+        cardPath.addRoundRect(cardArt, 20 * k, 20 * k, android.graphics.Path.Direction.CW);
         c.save();
         c.clipPath(cardPath);
         cardFill.setColor(0xFF2C2C34);
@@ -386,15 +399,13 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         }
         c.restore();
         nowPaint.setAlpha(Math.round(0xF2 * dim));
-        authorPaint.setAlpha(Math.round(0xB3 * dim));
-        authorPaint.setTextAlign(Paint.Align.LEFT);
-        c.drawText(cardTitleFit, tx, top + 62 * k, nowPaint);
-        c.drawText(cardSubFit, tx, top + 100 * k, authorPaint);
-        authorPaint.setTextAlign(Paint.Align.CENTER);
+        nowSub.setAlpha(Math.round(0xC0 * dim));
+        c.drawText(cardTitleFit, tx, top + 44 * k, nowPaint);
+        c.drawText(cardSubFit, tx, top + 76 * k, nowSub);
         float p = t == null ? -1 : NowPlayingControls.progress(t.position, t.duration, t.updatedAt, t.speed,
                 SystemClock.elapsedRealtime(), t.playing);
         if (p >= 0) {
-            float ly = top + ch - 12 * k, lx = left + pad + 6 * k, lw = cw - 2 * pad - 12 * k, lh = 4 * k;
+            float ly = top + ch - 9 * k, lx = left + pad + 4 * k, lw = cw - 2 * pad - 8 * k, lh = 3 * k;
             cardTmp.set(lx, ly - lh / 2, lx + lw, ly + lh / 2);
             cardFill.setColor(0x2EFFFFFF);
             c.drawRoundRect(cardTmp, lh / 2, lh / 2, cardFill);

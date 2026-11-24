@@ -40,6 +40,8 @@ public class NowPlaying extends NotificationListenerService {
         long actions, position, duration, updatedAt;
         float speed;
         Bitmap art;
+        /** An opaque colour from the art (its average, darkened) for the glass to take; 0 without art. */
+        int tint;
     }
 
     private static final java.util.concurrent.ExecutorService ART_POOL = java.util.concurrent.Executors.newFixedThreadPool(2, r -> {
@@ -81,6 +83,7 @@ public class NowPlaying extends NotificationListenerService {
         private Track track;
         private String trackSignature = "", artKey = "";
         private Bitmap artBitmap;
+        private int artTint;
         private int tries;
         private final java.util.Map<String, String> labels = new java.util.HashMap<>();
         /** The grant takes a few seconds after the switch: look again until it has (a few times only). */
@@ -212,9 +215,11 @@ public class NowPlaying extends NotificationListenerService {
                 if (!key.equals(artKey)) {
                     artKey = key;
                     artBitmap = m == null ? null : bitmapOf(m);
+                    artTint = artBitmap == null ? 0 : tintOf(artBitmap);
                     if (artBitmap == null && m != null) loadArtFromUri(m, key);
                 }
                 t.art = artBitmap;
+                t.tint = artTint;
             }
             String sig = t == null ? "" : t.pkg + "|" + t.title + "|" + t.artist + "|" + t.playing + "|" + t.actions + "|"
                     + t.position + "|" + t.duration + "|" + (t.art != null);
@@ -280,12 +285,20 @@ public class NowPlaying extends NotificationListenerService {
                 if (art != null) main.post(() -> {
                     if (key.equals(artKey) && manager != null) {   // still the same track, still watching
                         artBitmap = art;
+                        artTint = tintOf(art);
                         if (track != null) track.art = art;
                         trackSignature = "";
                         refresh();
                     }
                 });
             });
+        }
+
+        /** The art's average colour, pulled toward black so white text reads on it. */
+        private int tintOf(Bitmap b) {
+            int px = Bitmap.createScaledBitmap(b, 1, 1, true).getPixel(0, 0);
+            int r = (int) (((px >> 16) & 255) * 0.62f), g = (int) (((px >> 8) & 255) * 0.62f), bl = (int) ((px & 255) * 0.62f);
+            return 0xFF000000 | r << 16 | g << 8 | bl;
         }
 
         private Bitmap scaled(Bitmap b) {

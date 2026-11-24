@@ -1839,6 +1839,28 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private NowPlaying.Watch nowWatch;
     private final RectF pillRect = new RectF(), pillArt = new RectF();
     private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private android.graphics.LinearGradient npSheen;
+    private float npSheenTop = -1, npSheenBottom = -1;
+
+    /**
+     * Tinted frosted glass for Now Playing, like Apple's player: the photo behind it, blurred, tinted with the art's own
+     * colour (slate without art), a soft light along the top and a fine edge.
+     */
+    private void playerGlass(Canvas c, RectF r, float radius, int tint) {
+        int base = tint == 0 ? 0xFF3A3F4B : tint;
+        scene.glass(c, r, radius, base, 0.46f, 0, 0, 0.02f, 1);
+        if (npSheen == null || npSheenTop != r.top || npSheenBottom != r.bottom) {
+            npSheen = new android.graphics.LinearGradient(0, r.top, 0, r.bottom, 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
+            npSheenTop = r.top;
+            npSheenBottom = r.bottom;
+        }
+        fill.setShader(npSheen);
+        c.drawRoundRect(r, radius, radius, fill);
+        fill.setShader(null);
+        border.setColor(0x47FFFFFF);
+        c.drawRoundRect(r, radius, radius, border);
+    }
+
     private final android.graphics.Path pillClip = new android.graphics.Path();
     private final android.graphics.Rect pillSrc = new android.graphics.Rect();
     private Paint pillTitle, pillSub;
@@ -1944,9 +1966,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         tmp.offset(0, 10 * k);
         shadowDeep.setColor(Ui.alpha(0xFF000000, 0.32f));
         shadows.draw(c, tmp, r, DEEP_BLUR * k, shadowDeep);
-        scene.glass(c, pillRect, r, SMOKE, 0.55f, 0, 0, 0.02f, 1);
-        border.setColor(0x2EFFFFFF);
-        c.drawRoundRect(pillRect, r, r, border);
+        playerGlass(c, pillRect, r, t == null ? 0 : t.tint);
         if (zone == Z_PILL && !sheetOpen && !menuOpen) {   // focused: a white ring
             ring.setStyle(Paint.Style.STROKE);
             ring.setStrokeWidth(3.5f * k);
@@ -5022,9 +5042,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         tmp.offset(0, 16 * k);
         shadowDeep.setColor(Ui.alpha(0xFF000000, 0.5f));
         shadows.draw(c, tmp, r, DEEP_BLUR * k, shadowDeep);
-        scene.glass(c, p, r, SMOKE, 0.62f, 0, 0, 0.02f, 1);
-        border.setColor(0x2EFFFFFF);
-        c.drawRoundRect(p, r, r, border);
+        playerGlass(c, p, r, t.tint);
         // The art (or the app's icon) at the left, the text beside it.
         float pad = 28 * k, art = 150 * k;
         pillArt.set(p.left + pad, p.top + pad, p.left + pad + art, p.top + pad + art);

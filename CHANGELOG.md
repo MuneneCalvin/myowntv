@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Now playing: a switch in Home Settings shows what is playing (title, artist and app, with level bars) in the prices' place on Home and in the screensaver's quote spot, and after a pause or restart the last thing played, dimmed, for a day. It reads the apps' media sessions only (never notifications) and needs the TV's wireless debugging for a one-time grant that is taken back when you switch it off.
+
 ## 1.2.0
 - Search: a round Search button on the Home screen. Type or say a title; it shows which of your TV's streaming apps have it in your country, opens the app on it, and can save it to My list (needs your free TMDB key).
 - The City box in Home Settings now credits Open-Meteo.com and GeoNames, as their licence (CC BY 4.0) asks.

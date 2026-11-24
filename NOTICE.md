@@ -4,6 +4,8 @@ This project is a fork of **Free My TV** (https://github.com/simbasjungles/free-
 Copyright (c) 2026 Free My TV contributors. The original licence text is in `LICENSE` and must stay with
 any copy of this code.
 
+The Now Playing line (reading the apps' media sessions through an empty notification listener) follows Free My TV's `NowPlaying.java`.
+
 Design values, five scene images and an algorithm come from **Couch TV** (https://github.com/Seagey/couch-tv),
 MIT licence, Copyright (c) 2026 Seagey: the colours, glass and clock look, the five generated scenes (credited there as
 free to use), and `ClearIcon.java`, a Java port of its `clearicon.js` (an app icon without its background). Its

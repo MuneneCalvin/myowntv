@@ -40,6 +40,12 @@ Home Settings > Top Buttons). It needs your free TMDB key, like the picks.
 - **My list** (the button next to Speak) brings your saved titles back, with where each one streams now.
 The list is kept on the TV only.
 
+## Now playing
+Home Settings > Now playing (off by default) shows what is playing, in any app that tells Android what it plays: level bars and "Title · Artist · App" where the prices are on Home, and in the quote's place on the screensaver. After a pause or restart it shows the last thing, dimmed, for 24 hours.
+- It reads the media sessions only. It never reads a notification.
+- Switching it on has the TV's own wireless debugging grant a notification listener (a one-time grant; the row reads "Waiting" until it takes). Switching it off takes the grant back.
+- Spotify worked in testing, also from the background. Video apps usually stop their session when you leave them, so they show only while playing.
+
 ## Troubleshooting
 - **Google home shows before MyOwnTV after a power-off boot:** expected for a few seconds; the home screen is switched
   with the Google home left on. Waking from standby is instant.

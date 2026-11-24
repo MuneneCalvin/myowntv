@@ -46,6 +46,14 @@ final class NowPlayingText {
         return null;
     }
 
+    /** The one to show and control: what is playing, else a paused session (it can be resumed); null if neither. */
+    static Session pickCurrent(List<Session> sessions) {
+        Session playing = pick(sessions);
+        if (playing != null) return playing;
+        for (Session s : sessions) if (s.state == PAUSED) return s;
+        return null;
+    }
+
     /** "Title · Artist · App", one clean line, or null when there's neither a title nor an artist. */
     static String line(Session s) {
         String title = clean(s.title), artist = clean(s.artist), app = clean(s.app);

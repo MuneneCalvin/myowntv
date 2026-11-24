@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.os.Handler;
 import android.os.Looper;
+import android.graphics.Bitmap;
 import android.os.SystemClock;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -123,7 +124,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         weatherPaint = Ui.numbers(Ui.medium, 30 * k, 0xC7FFFFFF);
         sayPaint = Ui.text(Ui.cursive, 42 * k, 0xF2FFFFFF);
         sayPaint.setTextAlign(Paint.Align.CENTER);
-        nowPaint = Ui.text(Ui.medium, 32 * k, 0xF2FFFFFF);
+        nowPaint = Ui.text(Ui.semibold, 36 * k, 0xF2FFFFFF);
         nowPaint.setTextAlign(Paint.Align.LEFT);
         authorPaint = Ui.text(Ui.regular, 22 * k, 0xB3FFFFFF);
         authorPaint.setTextAlign(Paint.Align.CENTER);
@@ -247,9 +248,8 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
 
     /** The quote and its author near the bottom edge; every 2 minutes it fades out and the next fades in. */
     private void drawSaying(Canvas c, long up) {
-        String np = nowPaint == null ? null : NowPlaying.display(getContext(), nowPlaying);
-        if (np != null) {   // something is playing (or was, today): it takes the quote's place
-            drawNowPlaying(c, up, np);
+        if (nowPaint != null && Prefs.nowPlaying() && (nowPlaying.track() != null || NowPlaying.last(getContext()) != null)) {
+            drawNowPlaying(c, up);   // something is playing (or was, today): it takes the quote's place
             return;
         }
         if (!Prefs.sayings() || saying == null || sayingLines.isEmpty() || sayPaint == null) return;
@@ -290,18 +290,118 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         c.drawText(saying.author, cx, authorBase, authorPaint);
     }
 
-    /** The level bars and "Title · Artist · App", centred where the quote goes; dimmed when it's only the last played. */
-    private void drawNowPlaying(Canvas c, long up, String text) {
-        boolean live = nowPlaying.line() != null;
-        int alpha = live ? 0xF2 : 0x99;
-        nowPaint.setAlpha(alpha);
-        String fit = android.text.TextUtils.ellipsize(text, new android.text.TextPaint(nowPaint), w * 0.7f,
-                android.text.TextUtils.TruncateAt.END).toString();
-        float cap = Ui.cap(nowPaint), barsW = cap * 0.24f * 3 + cap * 0.24f * 0.7f * 2, gap = 22 * k;
-        float x = (w - (barsW + gap + nowPaint.measureText(fit))) / 2, base = h - 92 * k;
-        nowPaint.setAlpha(alpha);
-        NowPlaying.bars(c, x, base, cap, nowPaint, nowPlaying.playing(), up);
-        c.drawText(fit, x + barsW + gap, base, nowPaint);
+    private final Paint cardFill = new Paint(Paint.ANTI_ALIAS_FLAG), cardLine = new Paint(Paint.ANTI_ALIAS_FLAG),
+            cardImage = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
+    private final android.graphics.RectF cardRect = new android.graphics.RectF(), cardArt = new android.graphics.RectF(),
+            cardTmp = new android.graphics.RectF();
+    private final android.graphics.Path cardPath = new android.graphics.Path();
+    private final android.graphics.Rect cardSrc = new android.graphics.Rect();
+    private String cardFitFor = "", cardTitleFit = "", cardSubFit = "";
+    private float cardFitRoom;
+    private Bitmap cardIcon;
+    private String cardIconPkg = "";
+
+    /** The app's own icon, decoded once, for a track that has no art. */
+    private Bitmap appIcon(String pkg) {
+        if (pkg == null) return null;
+        if (!pkg.equals(cardIconPkg)) {
+            cardIconPkg = pkg;
+            cardIcon = null;
+            try {
+                android.graphics.drawable.Drawable d = getContext().getPackageManager().getApplicationIcon(pkg);
+                int side = Math.round(120 * k);
+                Bitmap b = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888);
+                d.setBounds(0, 0, side, side);
+                d.draw(new Canvas(b));
+                cardIcon = b;
+            } catch (Exception e) {
+                cardIcon = null;
+            }
+        }
+        return cardIcon;
+    }
+
+    /**
+     * What is playing, as a quiet glass card at the bottom centre where the quote goes: the art (or the app's icon), the
+     * title, the artist and app, and a thin line for how far along. No controls here: any key wakes the screen. Paused,
+     * or only the last played: dimmer, with a play mark.
+     */
+    private void drawNowPlaying(Canvas c, long up) {
+        NowPlaying.Track t = nowPlaying.track();
+        String title, sub, pkg = t == null ? NowPlaying.lastPackage(getContext()) : t.pkg;
+        boolean live = t != null && t.playing;
+        if (t != null) {
+            title = t.title.isEmpty() ? t.artist : t.title;
+            sub = t.title.isEmpty() ? t.app : (t.artist.isEmpty() ? t.app : t.artist + " \u00b7 " + t.app);
+        } else {
+            title = NowPlaying.last(getContext());
+            sub = Ui.tr("Last played");
+        }
+        float cw = 880 * k, ch = 150 * k, left = (w - cw) / 2, top = h - 64 * k - ch, pad = 20 * k, r = 40 * k;
+        cardRect.set(left, top, left + cw, top + ch);
+        float art = ch - 2 * pad;
+        cardArt.set(left + pad, top + pad, left + pad + art, top + pad + art);
+        float tx = cardArt.right + 28 * k, room = left + cw - pad - tx;
+        nowPaint.setTextAlign(Paint.Align.LEFT);
+        if (!(title + "\n" + sub).equals(cardFitFor) || room != cardFitRoom) {
+            cardTitleFit = android.text.TextUtils.ellipsize(title, new android.text.TextPaint(nowPaint), room,
+                    android.text.TextUtils.TruncateAt.END).toString();
+            cardSubFit = android.text.TextUtils.ellipsize(sub, new android.text.TextPaint(authorPaint), room,
+                    android.text.TextUtils.TruncateAt.END).toString();
+            cardFitFor = title + "\n" + sub;
+            cardFitRoom = room;
+        }
+        float dim = live ? 1f : 0.62f;
+        cardFill.setColor(Ui.alpha(0xFF14161C, 0.55f));
+        c.drawRoundRect(cardRect, r, r, cardFill);
+        cardLine.setStyle(Paint.Style.STROKE);
+        cardLine.setStrokeWidth(1.5f * k);
+        cardLine.setColor(0x33FFFFFF);
+        c.drawRoundRect(cardRect, r, r, cardLine);
+        Bitmap img = t == null ? null : t.art;
+        cardPath.reset();
+        cardPath.addRoundRect(cardArt, 26 * k, 26 * k, android.graphics.Path.Direction.CW);
+        c.save();
+        c.clipPath(cardPath);
+        cardFill.setColor(0xFF2C2C34);
+        c.drawRect(cardArt, cardFill);
+        Bitmap shown = img != null ? img : appIcon(pkg);
+        if (shown != null) {
+            int side = Math.min(shown.getWidth(), shown.getHeight());
+            cardSrc.set((shown.getWidth() - side) / 2, (shown.getHeight() - side) / 2, (shown.getWidth() + side) / 2, (shown.getHeight() + side) / 2);
+            cardImage.setAlpha(Math.round(255 * dim));
+            cardTmp.set(cardArt);
+            if (img == null) cardTmp.inset(art * 0.14f, art * 0.14f);
+            c.drawBitmap(shown, cardSrc, cardTmp, cardImage);
+        }
+        if (!live) {   // a play mark on the art
+            float cx = cardArt.centerX(), cy = cardArt.centerY(), s = art * 0.17f;
+            cardFill.setColor(0xE6FFFFFF);
+            cardPath.reset();
+            cardPath.moveTo(cx - s * 0.7f, cy - s);
+            cardPath.lineTo(cx - s * 0.7f, cy + s);
+            cardPath.lineTo(cx + s, cy);
+            cardPath.close();
+            c.drawPath(cardPath, cardFill);
+        }
+        c.restore();
+        nowPaint.setAlpha(Math.round(0xF2 * dim));
+        authorPaint.setAlpha(Math.round(0xB3 * dim));
+        authorPaint.setTextAlign(Paint.Align.LEFT);
+        c.drawText(cardTitleFit, tx, top + 62 * k, nowPaint);
+        c.drawText(cardSubFit, tx, top + 100 * k, authorPaint);
+        authorPaint.setTextAlign(Paint.Align.CENTER);
+        float p = t == null ? -1 : NowPlayingControls.progress(t.position, t.duration, t.updatedAt, t.speed,
+                SystemClock.elapsedRealtime(), t.playing);
+        if (p >= 0) {
+            float ly = top + ch - 12 * k, lx = left + pad + 6 * k, lw = cw - 2 * pad - 12 * k, lh = 4 * k;
+            cardTmp.set(lx, ly - lh / 2, lx + lw, ly + lh / 2);
+            cardFill.setColor(0x2EFFFFFF);
+            c.drawRoundRect(cardTmp, lh / 2, lh / 2, cardFill);
+            cardTmp.right = lx + lw * p;
+            cardFill.setColor(Ui.alpha(0xFFFFFFFF, 0.85f * dim));
+            if (cardTmp.width() > 0) c.drawRoundRect(cardTmp, lh / 2, lh / 2, cardFill);
+        }
     }
 
     private void record() {

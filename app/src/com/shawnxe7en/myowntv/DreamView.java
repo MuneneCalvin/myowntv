@@ -126,7 +126,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         sayPaint.setTextAlign(Paint.Align.CENTER);
         nowPaint = Ui.text(Ui.semibold, 28 * k, 0xF2FFFFFF);
         nowPaint.setTextAlign(Paint.Align.LEFT);
-        nowSub = Ui.text(Ui.regular, 21 * k, 0xC0FFFFFF);
+        nowSub = Ui.text(Ui.regular, 21 * k, 0xD9FFFFFF);
         nowSub.setTextAlign(Paint.Align.LEFT);
         authorPaint = Ui.text(Ui.regular, 22 * k, 0xB3FFFFFF);
         authorPaint.setTextAlign(Paint.Align.CENTER);
@@ -355,10 +355,9 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             cardFitRoom = room;
         }
         float dim = live ? 1f : 0.62f;
-        // Glass over the scene: the art's colour (slate without art), translucent, with a soft light along the top.
-        int tint = t == null || t.tint == 0 ? 0xFF3A3F4B : t.tint;
+        // Glass over the scene: a breath of white, no dark tint, with a soft light along the top and a fine edge.
         cardFill.setShader(null);
-        cardFill.setColor(Ui.alpha(tint, 0.58f));
+        cardFill.setColor(0x38FFFFFF);
         c.drawRoundRect(cardRect, r, r, cardFill);
         if (cardSheen == null || cardSheenTop != top) {
             cardSheen = new android.graphics.LinearGradient(0, top, 0, top + ch, 0x40FFFFFF, 0x00FFFFFF, android.graphics.Shader.TileMode.CLAMP);
@@ -369,7 +368,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         cardFill.setShader(null);
         cardLine.setStyle(Paint.Style.STROKE);
         cardLine.setStrokeWidth(1.5f * k);
-        cardLine.setColor(0x47FFFFFF);
+        cardLine.setColor(0x66FFFFFF);
         c.drawRoundRect(cardRect, r, r, cardLine);
         Bitmap img = t == null ? null : t.art;
         cardPath.reset();
@@ -399,7 +398,7 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
         }
         c.restore();
         nowPaint.setAlpha(Math.round(0xF2 * dim));
-        nowSub.setAlpha(Math.round(0xC0 * dim));
+        nowSub.setAlpha(Math.round(0xD9 * dim));
         c.drawText(cardTitleFit, tx, top + 44 * k, nowPaint);
         c.drawText(cardSubFit, tx, top + 76 * k, nowSub);
         float p = t == null ? -1 : NowPlayingControls.progress(t.position, t.duration, t.updatedAt, t.speed,

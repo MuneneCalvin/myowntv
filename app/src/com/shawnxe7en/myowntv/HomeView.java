@@ -1039,10 +1039,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         noticeLabel = Ui.text(Ui.semibold, 26 * k, 0xFFFFFFFF);
         noticeLabel.setTextAlign(Paint.Align.CENTER);
         playerTitle = Ui.text(Ui.semibold, 36 * k, 0xFFFFFFFF);
-        playerSub = Ui.text(Ui.regular, 25 * k, 0xB8FFFFFF);
-        playerTime = Ui.numbers(Ui.regular, 21 * k, 0x99FFFFFF);
+        playerSub = Ui.text(Ui.regular, 25 * k, 0xD9FFFFFF);
+        playerTime = Ui.numbers(Ui.regular, 21 * k, 0xCCFFFFFF);
+        for (Paint p : new Paint[] {playerTitle, playerSub, playerTime}) p.setShadowLayer(10 * k, 0, 1.5f * k, 0x66000000);
         pillTitle = Ui.text(Ui.semibold, 28 * k, 0xFFFFFFFF);
-        pillSub = Ui.text(Ui.regular, 21 * k, 0xB8FFFFFF);
+        pillSub = Ui.text(Ui.regular, 21 * k, 0xD9FFFFFF);
+        for (Paint p : new Paint[] {pillTitle, pillSub}) p.setShadowLayer(10 * k, 0, 1.5f * k, 0x66000000);   // legible on a pale photo
         post(this::showUpdateNotice);   // a start of the app: the first resume came before these paints existed
         if (menuOpen) layoutMenu();
         shadow.setMaskFilter(new BlurMaskFilter(SHADOW_BLUR * k, BlurMaskFilter.Blur.NORMAL));
@@ -1843,12 +1845,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private float npSheenTop = -1, npSheenBottom = -1;
 
     /**
-     * Tinted frosted glass for Now Playing, like Apple's player: the photo behind it, blurred, tinted with the art's own
-     * colour (slate without art), a soft light along the top and a fine edge.
+     * Liquid glass for Now Playing, as light as Apple's player: the dock's glass (the photo behind it, blurred and bent at
+     * the rim) with only a breath of white, no dark tint, a soft light along the top and a fine edge.
      */
-    private void playerGlass(Canvas c, RectF r, float radius, int tint) {
-        int base = tint == 0 ? 0xFF3A3F4B : tint;
-        scene.glass(c, r, radius, base, 0.46f, 0, 0, 0.02f, 1);
+    private void playerGlass(Canvas c, RectF r, float radius) {
+        scene.liquid(c, r, radius, 0xFFFFFFFF, 0.14f, 0.04f, 24 * k, 16 * k, 0.9f, 1);
         if (npSheen == null || npSheenTop != r.top || npSheenBottom != r.bottom) {
             npSheen = new android.graphics.LinearGradient(0, r.top, 0, r.bottom, 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
             npSheenTop = r.top;
@@ -1857,7 +1858,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         fill.setShader(npSheen);
         c.drawRoundRect(r, radius, radius, fill);
         fill.setShader(null);
-        border.setColor(0x47FFFFFF);
+        border.setColor(0x59FFFFFF);
         c.drawRoundRect(r, radius, radius, border);
     }
 
@@ -1966,7 +1967,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         tmp.offset(0, 10 * k);
         shadowDeep.setColor(Ui.alpha(0xFF000000, 0.32f));
         shadows.draw(c, tmp, r, DEEP_BLUR * k, shadowDeep);
-        playerGlass(c, pillRect, r, t == null ? 0 : t.tint);
+        playerGlass(c, pillRect, r);
         if (zone == Z_PILL && !sheetOpen && !menuOpen) {   // focused: a white ring
             ring.setStyle(Paint.Style.STROKE);
             ring.setStrokeWidth(3.5f * k);
@@ -2011,7 +2012,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         c.restore();
         pillTitle.setAlpha(Math.round(255 * dim));
-        pillSub.setAlpha(Math.round(0xB8 * dim));
+        pillSub.setAlpha(Math.round(0xD9 * dim));
         c.drawText(pillTitleFit, tx, top + 44 * k, pillTitle);
         c.drawText(pillSubFit, tx, top + 76 * k, pillSub);
         float p = t == null ? -1 : NowPlayingControls.progress(t.position, t.duration, t.updatedAt, t.speed,
@@ -5042,7 +5043,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         tmp.offset(0, 16 * k);
         shadowDeep.setColor(Ui.alpha(0xFF000000, 0.5f));
         shadows.draw(c, tmp, r, DEEP_BLUR * k, shadowDeep);
-        playerGlass(c, p, r, t.tint);
+        playerGlass(c, p, r);
         // The art (or the app's icon) at the left, the text beside it.
         float pad = 28 * k, art = 150 * k;
         pillArt.set(p.left + pad, p.top + pad, p.left + pad + art, p.top + pad + art);

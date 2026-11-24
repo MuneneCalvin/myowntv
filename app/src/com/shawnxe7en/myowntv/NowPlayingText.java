@@ -67,6 +67,23 @@ final class NowPlayingText {
         return sb.length() <= MAX_CHARS ? sb.toString() : sb.substring(0, MAX_CHARS - 1) + "…";
     }
 
+    /**
+     * YouTube keeps no address for what it played, only the title and artist, so "resume" is a search for them (the same
+     * video comes up first, focused): the last line without its app name, as a YouTube search address. Null if empty.
+     */
+    static String youtubeSearch(String line) {
+        if (line == null || line.trim().isEmpty()) return null;
+        String[] parts = line.split(" \u00b7 ");
+        int n = parts.length > 1 ? parts.length - 1 : 1;   // the last part is the app
+        StringBuilder q = new StringBuilder();
+        for (int i = 0; i < n; i++) q.append(i == 0 ? "" : " ").append(parts[i].trim());
+        try {
+            return "https://www.youtube.com/results?search_query=" + java.net.URLEncoder.encode(q.toString(), "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return null;
+        }
+    }
+
     static String pack(String line, String pkg, long at) {
         return clean(line) + "\t" + clean(pkg) + "\t" + at;
     }

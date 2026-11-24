@@ -1845,11 +1845,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private float npSheenTop = -1, npSheenBottom = -1;
 
     /**
-     * Liquid glass for Now Playing, as light as Apple's player: the dock's glass (the photo behind it, blurred and bent at
-     * the rim) with only a breath of white, no dark tint, a soft light along the top and a fine edge.
+     * The dock's own dark liquid glass for Now Playing (the photo behind it, blurred and bent at the rim, smoked), so it
+     * sits with the rest of the screen, with a soft light along the top and a fine edge.
      */
     private void playerGlass(Canvas c, RectF r, float radius) {
-        scene.liquid(c, r, radius, 0xFFFFFFFF, 0.14f, 0.04f, 24 * k, 16 * k, 0.9f, 1);
+        scene.liquid(c, r, radius, Tokens.GLASS_TINT, 0.64f, 0.02f, 30 * k, 22 * k, 0.65f, 1);
         if (npSheen == null || npSheenTop != r.top || npSheenBottom != r.bottom) {
             npSheen = new android.graphics.LinearGradient(0, r.top, 0, r.bottom, 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP);
             npSheenTop = r.top;
@@ -1898,7 +1898,23 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         String pkg = NowPlaying.lastPackage(activity);
         if (pkg == null) return;
         click.open();
+        if ("com.google.android.youtube.tv".equals(pkg) && openYoutubeSearch(NowPlaying.last(activity))) return;
         if (!openApp(new WatchNext.Item(pkg, null, null))) showToast(Ui.trf("Couldn't open {app}.", "app", pkg));
+    }
+
+    /** YouTube drops its session on leaving, so Last played can't resume it: open YouTube on a search for it instead. */
+    private boolean openYoutubeSearch(String line) {
+        String url = NowPlayingText.youtubeSearch(line);
+        if (url == null) return false;
+        try {
+            activity.startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                    .setPackage("com.google.android.youtube.tv").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            Recent.note(activity, "com.google.android.youtube.tv");
+            return true;
+        } catch (ActivityNotFoundException | SecurityException e) {
+            AppLog.w("couldn't open a YouTube search: " + e.getMessage());
+            return false;
+        }
     }
 
     /** Whether Now Playing has something to show in the prices' place: a session, or the last one from today. */

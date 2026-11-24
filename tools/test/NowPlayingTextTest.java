@@ -48,6 +48,12 @@ public class NowPlayingTextTest {
         check(NowPlayingText.unpack("a\tb\tc", 0) == null, "a bad time is ignored");
         NowPlayingText.Saved tabs = NowPlayingText.unpack(NowPlayingText.pack("a\tb\nc", "p\tq", 5), 5);
         check(tabs != null && !tabs.line.contains("\t") && !tabs.line.contains("\n") && !tabs.pkg.contains("\t"), "tabs and newlines can't break the packing");
+        check("https://www.youtube.com/results?search_query=Ruger+-+Asiwaju+%28Official+Video%29+Ruger".equals(
+                NowPlayingText.youtubeSearch("Ruger - Asiwaju (Official Video) · Ruger · YouTube")), "the search drops the app and keeps title and artist");
+        check("https://www.youtube.com/results?search_query=Only+Title".equals(NowPlayingText.youtubeSearch("Only Title")), "a line without an app is searched whole");
+        check("https://www.youtube.com/results?search_query=Title".equals(NowPlayingText.youtubeSearch("Title · YouTube")), "title and app: just the title");
+        check(NowPlayingText.youtubeSearch(null) == null && NowPlayingText.youtubeSearch("  ") == null && NowPlayingText.youtubeSearch("") == null, "nothing to search for");
+        check(NowPlayingText.youtubeSearch("Tom & Jerry? · Cartoons · YouTube").contains("Tom+%26+Jerry%3F"), "special characters are encoded");
         System.out.println("PASS NowPlayingTextTest");
     }
 }

@@ -41,10 +41,14 @@ Home Settings > Top Buttons). It needs your free TMDB key, like the picks.
 The list is kept on the TV only.
 
 ## Now playing
-Home Settings > Now playing (off by default) shows what is playing, in any app that tells Android what it plays: level bars and "Title · Artist · App" where the prices are on Home, and in the quote's place on the screensaver. After a pause or restart it shows the last thing, dimmed, for 24 hours.
+Home Settings > Now playing (off by default) shows what is playing, in any app that tells Android what it plays.
+- **On Home**, a dark glass pill under the corner buttons (where the prices are) with the album art (or the app's icon), the title, the artist and app, and a thin line for how far along. Paused or only the last played: dimmer, with a play mark.
+- **Controls:** press Down from the corner buttons to focus the pill, then OK. A card opens with the art, a progress line with times, and ⏮ ⏯ ⏭ (the ones the app doesn't offer are dimmed). Left and Right choose, OK presses, Back closes.
+- **On the screensaver**, a smaller pill at the top right; the quote stays at the bottom.
+- **After a restart or when an app drops its session**, the pill shows the last thing played, dimmed, for 24 hours; OK opens that app.
 - It reads the media sessions only. It never reads a notification.
 - Switching it on has the TV's own wireless debugging grant a notification listener (a one-time grant; the row reads "Waiting" until it takes). Switching it off takes the grant back.
-- Spotify worked in testing, also from the background. Video apps usually stop their session when you leave them, so they show only while playing.
+- **Spotify** shows and is controllable, also from the background. **YouTube** (video) shows only while it is open: the app stops and drops its session when you leave it, and nothing can resume it from outside. After that, OK on "Last played" opens YouTube on a search for that video (with the right one focused: press OK to play it). Netflix does the same as YouTube.
 
 ## Troubleshooting
 - **Google home shows before MyOwnTV after a power-off boot:** expected for a few seconds; the home screen is switched

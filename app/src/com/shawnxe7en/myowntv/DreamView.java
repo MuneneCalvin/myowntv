@@ -355,9 +355,9 @@ final class DreamView extends View implements Choreographer.FrameCallback, HomeD
             cardFitRoom = room;
         }
         float dim = live ? 1f : 0.62f;
-        // Glass over the scene: a breath of white, no dark tint, with a soft light along the top and a fine edge.
+        // Smoked glass over the scene, as on Home, with a soft light along the top and a fine edge.
         cardFill.setShader(null);
-        cardFill.setColor(0x38FFFFFF);
+        cardFill.setColor(Ui.alpha(Tokens.GLASS_TINT, 0.62f));
         c.drawRoundRect(cardRect, r, r, cardFill);
         if (cardSheen == null || cardSheenTop != top) {
             cardSheen = new android.graphics.LinearGradient(0, top, 0, top + ch, 0x40FFFFFF, 0x00FFFFFF, android.graphics.Shader.TileMode.CLAMP);
